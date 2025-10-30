@@ -36,7 +36,6 @@ Users can:
 | **Music Platform Integration** | Connects to Spotify or YouTube for streaming playback. |
 | **Gamification System** | Awards points and badges like *Chill Master*, *Beat Runner*, *Night Owl*. |
 | **Contextual Notifications** | Suggests playlists based on mood, location, or weather. |
-| **Offline Support** | Stores sensor and mood data locally with Room for offline usage. |
 
 ---
 
