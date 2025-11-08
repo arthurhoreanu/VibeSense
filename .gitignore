@@ -16,3 +16,6 @@ local.properties
 
 # Google Services (e.g. APIs or Firebase)
 /app/google-services.json
+
+# Ignore all .idea files
+/.idea/
