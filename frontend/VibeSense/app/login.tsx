@@ -150,8 +150,8 @@ const LoginScreen: React.FC = () => {
           <AnimatedTouchable
             style={[styles.primaryButton, { backgroundColor: buttonBg }]}
             activeOpacity={0.85}
-            onMouseEnter={() => Platform.OS === 'web' && animateButton(1)}
-            onMouseLeave={() => Platform.OS === 'web' && animateButton(0)}
+            onPressIn={() => animateButton(1)}
+            onPressOut={() => animateButton(0)}
           >
             <Text style={styles.primaryButtonText}>Log In</Text>
           </AnimatedTouchable>
@@ -161,8 +161,8 @@ const LoginScreen: React.FC = () => {
             <Link href="/signup" asChild>
               <TouchableOpacity
                 style={styles.linkContainer}
-                onMouseEnter={() => Platform.OS === 'web' && animateUnderline(1)}
-                onMouseLeave={() => Platform.OS === 'web' && animateUnderline(0)}
+                onPressIn={() => animateUnderline(1)}
+                onPressOut={() => animateUnderline(0)}
               >
                 <View>
                   <Text style={styles.linkText}>Create account</Text>
