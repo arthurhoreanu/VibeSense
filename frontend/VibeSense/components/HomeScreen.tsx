@@ -12,7 +12,9 @@ import {
     Sunrise,
     ChevronRight,
     History,
+    Home,
 } from 'lucide-react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 const currentMood = {
     type: 'Energetic Explorer',
@@ -39,12 +41,6 @@ const recentTracks = [
     { time: 'Yesterday', title: 'Levitating', artist: 'Dua Lipa', colors: ['#4f46e5', '#7e22ce'] as const },
 ];
 
-const badges = [
-    { icon: Zap, name: 'Beat Runner', color: '#eab308' },
-    { icon: Award, name: 'Explorer', color: '#06b6d4' },
-    { icon: TrendingUp, name: '7 Day Streak', color: '#22c55e' },
-];
-
 const Progress = ({ value }: { value: number }) => (
     <View style={styles.progressContainer}>
         <View style={[styles.progressFill, { width: `${value}%` }]} />
@@ -59,19 +55,13 @@ export function HomeScreen() {
         >
             <ScrollView contentContainerStyle={styles.svContainer}>
                 {/* Header */}
-                <View style={styles.header}>
-                    <View>
-                        <Text style={styles.headerSubtitle}>VibeSense</Text>
-                        <Text style={styles.headerTitle}>Your Vibe</Text>
+                <Animated.View entering={FadeInDown.duration(500)} style={styles.header}>
+                    <View style={styles.headerTitleRow}>
+                        <Home color="#c084fc" size={20} />
+                        <Text style={styles.headerSubtitle}>Home</Text>
                     </View>
-                    <View style={styles.badgesRow}>
-                        {badges.map((badge, i) => (
-                            <View key={i} style={[styles.badgeIcon, { backgroundColor: badge.color }]}>
-                                <badge.icon width={16} height={16} color="white" />
-                            </View>
-                        ))}
-                    </View>
-                </View>
+                    <Text style={styles.headerTitle}>Your Vibe</Text>
+                </Animated.View>
 
                 {/* Current Mood Card */}
                 <View style={styles.cardMargin}>
@@ -184,18 +174,11 @@ const styles = StyleSheet.create({
         paddingTop: 60,
         paddingBottom: 40,
     },
-    header: {
-        paddingHorizontal: 24,
-        paddingVertical: 16,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    headerSubtitle: { color: '#c084fc', fontSize: 14 },
-    headerTitle: { color: 'white', fontSize: 24, fontWeight: '600' },
-    badgesRow: { flexDirection: 'row', gap: 8 },
-    badgeIcon: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
-    cardMargin: { marginHorizontal: 24, marginBottom: 24 },
+    header: { marginBottom: 24, paddingHorizontal: 20 },
+    headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+    headerSubtitle: { color: '#c084fc', fontSize: 16 },
+    headerTitle: { color: 'white', fontSize: 34, fontWeight: 'bold' },
+    cardMargin: { marginHorizontal: 20, marginBottom: 24 },
     moodCard: { borderRadius: 24, padding: 24, overflow: 'hidden' },
     moodHeader: {
         flexDirection: 'row',
@@ -222,7 +205,7 @@ const styles = StyleSheet.create({
     factorLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 12 },
     factorValue: { color: 'white', fontSize: 14, fontWeight: '500' },
     statsContainer: {
-        marginHorizontal: 24, 
+        marginHorizontal: 20, 
         marginBottom: 24, 
         flexDirection: 'row', 
         gap: 12
@@ -238,7 +221,7 @@ const styles = StyleSheet.create({
     },
     statValue: { fontSize: 24, fontWeight: 'bold' },
     statLabel: { color: '#94a3b8', fontSize: 12, marginTop: 4 },
-    sectionContainer: { marginHorizontal: 24, marginBottom: 24 },
+    sectionContainer: { marginHorizontal: 20, marginBottom: 24 },
     sectionHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
