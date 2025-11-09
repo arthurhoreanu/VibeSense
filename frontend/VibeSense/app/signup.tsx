@@ -14,7 +14,8 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
-import { auth } from '../config/firebaseConfig';
+import { doc, setDoc, Timestamp } from 'firebase/firestore';
+import { auth, db } from '../config/firebaseConfig';
 
 const { width } = Dimensions.get('window');
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
@@ -45,7 +46,16 @@ const SignupScreen: React.FC = () => {
     setLoading(true);
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      await sendEmailVerification(userCredential.user);
+      const user = userCredential.user;
+
+      // Create user document in Firestore
+      await setDoc(doc(db, "users", user.uid), {
+        uid: user.uid,
+        email: user.email,
+        createdAt: Timestamp.now(),
+      });
+
+      await sendEmailVerification(user);
       Alert.alert(
         'Success',
         'A verification email has been sent. Please check your inbox or spam folder.'
