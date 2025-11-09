@@ -1,4 +1,4 @@
-import { Link } from 'expo-router';
+import { Link, router } from 'expo-router';
 import React, { useState, useRef } from 'react';
 import {
   View,
@@ -9,9 +9,13 @@ import {
   Dimensions,
   Platform,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
+import { doc, setDoc, Timestamp } from 'firebase/firestore';
+import { auth, db } from '../config/firebaseConfig';
 
 const { width } = Dimensions.get('window');
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
@@ -22,12 +26,47 @@ const SignupScreen: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
+  const [loading, setLoading] = useState(false);
 
   const emailBorder = useRef(new Animated.Value(0)).current;
   const passBorder = useRef(new Animated.Value(0)).current;
   const confirmBorder = useRef(new Animated.Value(0)).current;
   const underlineAnim = useRef(new Animated.Value(0)).current;
   const buttonAnim = useRef(new Animated.Value(0)).current;
+
+  const handleSignUp = async () => {
+    if (!email || !password || !confirmPassword) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+    if (password !== confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
+      return;
+    }
+    setLoading(true);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Create user document in Firestore
+      await setDoc(doc(db, "users", user.uid), {
+        uid: user.uid,
+        email: user.email,
+        createdAt: Timestamp.now(),
+      });
+
+      await sendEmailVerification(user);
+      Alert.alert(
+        'Success',
+        'A verification email has been sent. Please check your inbox or spam folder.'
+      );
+      router.push('/login');
+    } catch (error: any) {
+      Alert.alert('Sign up failed', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const animateBorder = (anim: Animated.Value, toValue: number) => {
     Animated.timing(anim, {
@@ -99,6 +138,7 @@ const SignupScreen: React.FC = () => {
               placeholder="Email"
               placeholderTextColor="#8080A8"
               keyboardType="email-address"
+              autoCapitalize="none"
               value={email}
               onChangeText={setEmail}
               onFocus={() => animateBorder(emailBorder, 1)}
@@ -131,6 +171,7 @@ const SignupScreen: React.FC = () => {
               placeholder="Password"
               placeholderTextColor="#8080A8"
               secureTextEntry={!showPassword}
+              autoCapitalize="none"
               value={password}
               onChangeText={setPassword}
               onFocus={() => animateBorder(passBorder, 1)}
@@ -173,6 +214,7 @@ const SignupScreen: React.FC = () => {
               placeholder="Confirm Password"
               placeholderTextColor="#8080A8"
               secureTextEntry={!showConfirmPassword}
+              autoCapitalize="none"
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               onFocus={() => animateBorder(confirmBorder, 1)}
@@ -197,8 +239,12 @@ const SignupScreen: React.FC = () => {
             activeOpacity={0.85}
             onPressIn={() => animateButton(1)}
             onPressOut={() => animateButton(0)}
+            onPress={handleSignUp}
+            disabled={loading}
           >
-            <Text style={styles.primaryButtonText}>Create Account</Text>
+            <Text style={styles.primaryButtonText}>
+              {loading ? 'Creating Account...' : 'Create Account'}
+            </Text>
           </AnimatedTouchable>
 
           <View style={styles.bottomRow}>

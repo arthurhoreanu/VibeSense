@@ -9,9 +9,12 @@ import {
   Dimensions,
   Platform,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../config/firebaseConfig';
 
 const { width } = Dimensions.get('window');
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
@@ -21,6 +24,7 @@ const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [loading, setLoading] = useState(false);
 
   const emailBorder = useRef(new Animated.Value(0)).current;
   const passBorder = useRef(new Animated.Value(0)).current;
@@ -51,9 +55,28 @@ const LoginScreen: React.FC = () => {
     }).start();
   };
 
-  const handleLogin = () => {
-    // TODO: Implement actual login logic here
-    router.replace('/(tabs)/home');
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Please enter email and password');
+      return;
+    }
+    setLoading(true);
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      if (userCredential.user.emailVerified) {
+        router.replace('/(tabs)/home');
+      } else {
+        Alert.alert(
+          'Verification Required',
+          'Please verify your email before logging in.'
+        );
+        await auth.signOut(); // Sign out the user until they are verified
+      }
+    } catch (error: any) {
+      Alert.alert('Login failed', error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const buttonBg = buttonAnim.interpolate({
@@ -102,6 +125,7 @@ const LoginScreen: React.FC = () => {
               placeholder="Email"
               placeholderTextColor="#8080A8"
               keyboardType="email-address"
+              autoCapitalize="none"
               value={email}
               onChangeText={setEmail}
               onFocus={() => animateBorder(emailBorder, 1)}
@@ -134,6 +158,7 @@ const LoginScreen: React.FC = () => {
               placeholder="Password"
               placeholderTextColor="#8080A8"
               secureTextEntry={!showPassword}
+              autoCapitalize="none"
               value={password}
               onChangeText={setPassword}
               onFocus={() => animateBorder(passBorder, 1)}
@@ -159,8 +184,9 @@ const LoginScreen: React.FC = () => {
             onPress={handleLogin}
             onPressIn={() => animateButton(1)}
             onPressOut={() => animateButton(0)}
+            disabled={loading}
           >
-            <Text style={styles.primaryButtonText}>Log In</Text>
+            <Text style={styles.primaryButtonText}>{loading ? 'Logging in...' : 'Continue'}</Text>
           </AnimatedTouchable>
 
           <View style={styles.bottomRow}>
