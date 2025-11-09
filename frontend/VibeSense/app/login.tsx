@@ -1,4 +1,4 @@
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import React, { useState, useRef } from 'react';
 import {
   View,
@@ -17,6 +17,7 @@ const { width } = Dimensions.get('window');
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 const LoginScreen: React.FC = () => {
+  const router = useRouter();
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -48,6 +49,11 @@ const LoginScreen: React.FC = () => {
       duration: 200,
       useNativeDriver: false,
     }).start();
+  };
+
+  const handleLogin = () => {
+    // TODO: Implement actual login logic here
+    router.replace('/(tabs)/home');
   };
 
   const buttonBg = buttonAnim.interpolate({
@@ -150,6 +156,7 @@ const LoginScreen: React.FC = () => {
           <AnimatedTouchable
             style={[styles.primaryButton, { backgroundColor: buttonBg }]}
             activeOpacity={0.85}
+            onPress={handleLogin}
             onPressIn={() => animateButton(1)}
             onPressOut={() => animateButton(0)}
           >
