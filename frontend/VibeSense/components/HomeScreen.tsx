@@ -181,6 +181,7 @@ export function HomeScreen() {
 
 const styles = StyleSheet.create({
     svContainer: {
+        paddingTop: 60,
         paddingBottom: 40,
     },
     header: {
@@ -208,15 +209,14 @@ const styles = StyleSheet.create({
     factorsGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        margin: -6,
-        marginTop: 12,
+        justifyContent: 'space-between',
     },
     factorItem: {
         backgroundColor: 'rgba(255,255,255,0.1)',
         borderRadius: 12,
         padding: 12,
-        width: '50%',
-        paddingHorizontal: 18, 
+        width: '48.5%', // Ajustat pentru a permite spatiu
+        marginBottom: 10, // Adaugat spatiu vertical
     },
     factorHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
     factorLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 12 },

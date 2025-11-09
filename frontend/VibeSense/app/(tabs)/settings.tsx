@@ -1,8 +1,6 @@
 import React from 'react';
+import { SettingsPage } from '@/components/SettingsPage';
 
-export default function StatsScreen() {
-  return (
-    <>
-        </>
-      );
-    }
+export default function SettingsScreen() {
+  return <SettingsPage />;
+}

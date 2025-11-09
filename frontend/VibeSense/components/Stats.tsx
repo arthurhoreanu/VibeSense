@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Trophy, Zap, Music, Moon, Award, Star, Target, TrendingUp, Clock, Headphones } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeIn, FadeInDown, FadeInLeft } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { Progress } from './ui/progress';
 
 const userStats = {
@@ -74,7 +74,7 @@ export function StatsPage() {
         {/* Badges */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Badges & Achievements</Text>
-          <View style={styles.badgesGrid}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.badgesGrid}>
             {badges.map((badge, i) => (
               <Animated.View key={badge.id} entering={FadeIn.duration(500).delay(500 + i * 100)}>
                 {badge.earned ? (
@@ -84,6 +84,7 @@ export function StatsPage() {
                     </View>
                     <Text style={[styles.badgeName, { color: 'white' }]}>{badge.name}</Text>
                     <Text style={[styles.badgeDescription, { color: 'rgba(255,255,255,0.8)' }]}>{badge.description}</Text>
+                    <View style={{ flex: 1 }} />
                     <View style={styles.earnedContainer}>
                         <Award color="white" size={14} />
                         <Text style={styles.earnedText}>Earned</Text>
@@ -96,13 +97,14 @@ export function StatsPage() {
                     </View>
                     <Text style={[styles.badgeName, { color: 'rgba(255,255,255,0.6)' }]}>{badge.name}</Text>
                     <Text style={[styles.badgeDescription, { color: 'rgba(255,255,255,0.4)' }]}>{badge.description}</Text>
+                    <View style={{ flex: 1 }} />
                     <Progress value={badge.progress} />
                     <Text style={styles.progressText}>{badge.progress}% complete</Text>
                   </View>
                 )}
               </Animated.View>
             ))}
-          </View>
+          </ScrollView>
         </View>
       </ScrollView>
     </LinearGradient>
@@ -111,18 +113,18 @@ export function StatsPage() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollContent: { padding: 20, paddingTop: 60 },
-  header: { marginBottom: 24 },
+  scrollContent: { paddingVertical: 60 },
+  header: { marginBottom: 24, paddingHorizontal: 20 },
   headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   headerSubtitle: { color: '#FBBF24', fontSize: 16 },
   headerTitle: { color: 'white', fontSize: 34, fontWeight: 'bold' },
-  levelCard: { borderRadius: 24, padding: 20, marginBottom: 24 },
+  levelCard: { borderRadius: 24, padding: 20, marginBottom: 24, marginHorizontal: 20 },
   levelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
   cardSubtleText: { color: 'rgba(255,255,255,0.8)', fontSize: 14, marginBottom: 4 },
   levelText: { color: 'white', fontSize: 52, fontWeight: 'bold' },
   pointsText: { color: 'white', fontSize: 28, fontWeight: 'bold' },
   levelProgressText: { color: 'rgba(255,255,255,0.8)', fontSize: 14, marginTop: 8 },
-  quickStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 24 },
+  quickStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 24, paddingHorizontal: 20 },
   quickStatCard: {
     width: '48%',
     backgroundColor: 'rgba(30, 27, 75, 0.5)',
@@ -135,13 +137,13 @@ const styles = StyleSheet.create({
   quickStatValue: { color: 'white', fontSize: 24, fontWeight: 'bold', marginBottom: 4 },
   quickStatLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 12 },
   section: { marginBottom: 24 },
-  sectionTitle: { color: 'white', fontSize: 22, fontWeight: 'bold', marginBottom: 16 },
-  badgesGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-  badgeCard: { width: '48%', borderRadius: 16, padding: 16, marginBottom: 16, minHeight: 180, justifyContent: 'space-between' },
+  sectionTitle: { color: 'white', fontSize: 22, fontWeight: 'bold', marginBottom: 16, paddingHorizontal: 20 },
+  badgesGrid: { gap: 16, paddingHorizontal: 20 },
+  badgeCard: { width: 160, height: 210, borderRadius: 16, padding: 16, flexDirection: 'column' },
   badgeNotEarned: { backgroundColor: 'rgba(30, 27, 75, 0.3)', borderWidth: 1, borderColor: 'rgba(139, 92, 246, 0.1)' },
   badgeIconContainer: { width: 52, height: 52, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
   badgeName: { fontSize: 16, fontWeight: 'bold', marginBottom: 4 },
-  badgeDescription: { fontSize: 12, marginBottom: 12, flexShrink: 1 },
+  badgeDescription: { fontSize: 12, color: 'rgba(255,255,255,0.7)', marginBottom: 12 },
   earnedContainer: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
   earnedText: { color: 'white', fontSize: 12, fontWeight: 'bold' },
   progressText: { fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 4 },
