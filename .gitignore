@@ -19,3 +19,5 @@ local.properties
 
 # Ignore all .idea files
 /.idea/
+
+/.kotlin/
