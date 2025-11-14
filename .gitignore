@@ -12,5 +12,6 @@
 
 # Backend specific
 /backend/build/
+/backend/local.properties
 
 /.kotlin/

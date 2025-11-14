@@ -1,12 +1,16 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import {
+import * as WebBrowser from 'expo-web-browser';
+import { auth } from '../config/firebaseConfig';
+import * as Linking from 'expo-linking';
+import { 
     Play,
     Activity,
     Volume2,
     Cloud,
     Zap,
+    CheckCircle2,
     Award,
     TrendingUp,
     Sunrise,
@@ -15,6 +19,9 @@ import {
     Home,
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+
+// TODO: Replace with the actual URL
+const NGROK_URL = 'https://vibesense.ngrok-free.dev';
 
 const currentMood = {
     type: 'Energetic Explorer',
@@ -48,6 +55,77 @@ const Progress = ({ value }: { value: number }) => (
 );
 
 export function HomeScreen() {
+    const [isSpotifyConnected, setIsSpotifyConnected] = useState(false);
+
+    // Effect to handle Spotify connection status check, tied to Firebase auth state
+    useEffect(() => {
+        const unsubscribeFromAuth = auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                // User is signed in, now we can safely check their Spotify status
+                try {
+                    const response = await fetch(`${NGROK_URL}/spotify/status?uid=${user.uid}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        setIsSpotifyConnected(data.isConnected);
+                    }
+                } catch (error) {
+                    console.error("Failed to check Spotify status:", error);
+                    setIsSpotifyConnected(false); // Assume not connected on error
+                }
+            } else {
+                // User is signed out, so they can't be connected to Spotify
+                setIsSpotifyConnected(false);
+            }
+        });
+
+        // Cleanup the auth listener on component unmount
+        return unsubscribeFromAuth;
+    }, []); // Empty dependency array ensures this runs only once to set up the listener
+
+    // Effect to handle the deep link callback from Spotify
+    useEffect(() => {
+        const handleDeepLink = (event: { url: string; }) => {
+            const { url } = event;
+            if (url && url.startsWith('vibesense://spotify-connected')) {
+                WebBrowser.dismissBrowser();
+
+                const { queryParams } = Linking.parse(url);
+                if (queryParams?.status === 'success') {
+                    Alert.alert('Success!', 'Your Spotify account has been connected.');
+                    setIsSpotifyConnected(true); // Update state for instant feedback
+                } else if (queryParams?.status === 'error') {
+                    Alert.alert('Connection Failed', `Something went wrong: ${queryParams.message || 'Please try again.'}`);
+                }
+            }
+        };
+
+        const subscription = Linking.addEventListener('url', handleDeepLink);
+        Linking.getInitialURL().then(url => url && handleDeepLink({ url }));
+
+        // Cleanup the linking listener on component unmount
+        return () => {
+            subscription.remove();
+        };
+    }, []); // Empty dependency array ensures this runs only once to set up the listener
+
+    const handleSpotifyConnect = async () => {
+        const user = auth.currentUser;
+        if (!user) {
+            Alert.alert("Error", "You must be logged in to connect to Spotify.");
+            return;
+        }
+
+        const uid = user.uid;
+        const backendUrl = `${NGROK_URL}/spotify/login?uid=${uid}`;
+
+        try {
+            await WebBrowser.openBrowserAsync(backendUrl);
+        } catch (error) {
+            Alert.alert("Error", `Could not open browser. Make sure your ngrok tunnel is active.`);
+            console.error(error);
+        }
+    };
+
     return (
         <LinearGradient
             colors={['#0f172a', '#3b0764', '#020617']}
@@ -63,7 +141,6 @@ export function HomeScreen() {
                     <Text style={styles.headerTitle}>Your Vibe</Text>
                 </Animated.View>
 
-                {/* Current Mood Card */}
                 <View style={styles.cardMargin}>
                     <LinearGradient
                         colors={['#8b5cf6', '#d946ef']}
@@ -93,8 +170,6 @@ export function HomeScreen() {
                         </View>
                     </LinearGradient>
                 </View>
-
-                {/* Stats Summary */}
                 <View style={styles.statsContainer}>
                     <View style={styles.statBox}>
                         <Text style={[styles.statValue, { color: '#22d3ee' }]}>247</Text>
@@ -109,8 +184,25 @@ export function HomeScreen() {
                         <Text style={styles.statLabel}>Today</Text>
                     </View>
                 </View>
+                <View style={styles.sectionContainer}>
+                    {isSpotifyConnected ? (
+                        <View style={[styles.spotifyButtonGradient, styles.connectedButton]}>
+                            <CheckCircle2 color="white" size={20} />
+                            <Text style={styles.spotifyButtonText}>You are connected to Spotify</Text>
+                        </View>
+                    ) : (
+                        <TouchableOpacity onPress={handleSpotifyConnect} style={styles.spotifyButton}>
+                            <LinearGradient
+                                colors={['#1DB954', '#1ED760']}
+                                style={styles.spotifyButtonGradient}
+                            >
+                                <Zap color="white" size={20} />
+                                <Text style={styles.spotifyButtonText}>Connect to Spotify</Text>
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    )}
+                </View>
 
-                {/* Now Playing */}
                 <View style={styles.sectionContainer}>
                     <View style={styles.sectionHeader}>
                         <Text style={styles.sectionTitle}>Now Playing</Text>
@@ -136,9 +228,7 @@ export function HomeScreen() {
                         </View>
                     </LinearGradient>
                 </View>
-
-                {/* Recent Tracks */}
-                <View style={styles.sectionContainer}>
+                 <View style={styles.sectionContainer}>
                      <View style={styles.sectionHeader}>
                         <Text style={styles.sectionTitle}>Recent Tracks</Text>
                         <History width={20} height={20} color="#c084fc" />
@@ -198,16 +288,16 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.1)',
         borderRadius: 12,
         padding: 12,
-        width: '48.5%', // Ajustat pentru a permite spatiu
-        marginBottom: 10, // Adaugat spatiu vertical
+        width: '48.5%',
+        marginBottom: 10,
     },
     factorHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
     factorLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 12 },
     factorValue: { color: 'white', fontSize: 14, fontWeight: '500' },
     statsContainer: {
-        marginHorizontal: 20, 
-        marginBottom: 24, 
-        flexDirection: 'row', 
+        marginHorizontal: 20,
+        marginBottom: 24,
+        flexDirection: 'row',
         gap: 12
     },
     statBox: {
@@ -249,8 +339,8 @@ const styles = StyleSheet.create({
     },
     songTitle: { color: 'white', fontSize: 16, fontWeight: '500' },
     songArtist: { color: '#d8b4fe', fontSize: 14 },
-    progressContainer: { 
-        height: 4, 
+    progressContainer: {
+        height: 4,
         backgroundColor: 'rgba(255,255,255,0.2)',
         borderRadius: 2,
         marginTop: 8,
@@ -258,9 +348,9 @@ const styles = StyleSheet.create({
     },
     progressFill: { height: '100%', backgroundColor: 'white', borderRadius: 2 },
     trackItem: {
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        gap: 12, 
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
         backgroundColor: 'rgba(51, 65, 85, 0.5)',
         borderRadius: 12,
         padding: 12,
@@ -286,5 +376,29 @@ const styles = StyleSheet.create({
         gap: 8,
         marginTop: 12,
     },
-    historyButtonText: { color: 'white', fontSize: 14, fontWeight: '500' }
+    historyButtonText: { color: 'white', fontSize: 14, fontWeight: '500' },
+    spotifyButton: {
+        borderRadius: 16,
+        shadowColor: '#1DB954',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 10,
+    },
+    spotifyButtonGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 12,
+        paddingVertical: 16,
+        borderRadius: 16,
+    },
+    spotifyButtonText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    connectedButton: {
+        backgroundColor: '#1aa34a',
+    },
 });
