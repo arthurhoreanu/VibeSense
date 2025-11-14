@@ -15,7 +15,11 @@
 local.properties
 
 # Google Services (e.g. APIs or Firebase)
-/app/google-services.json
+/backend/google-services.json
 
 # Ignore all .idea files
 /.idea/
+
+/.kotlin/
+
+/backend/build/
