@@ -1,12 +1,16 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import {
+import * as WebBrowser from 'expo-web-browser';
+import { auth } from '../config/firebaseConfig';
+import * as Linking from 'expo-linking';
+import { 
     Play,
     Activity,
     Volume2,
     Cloud,
     Zap,
+    CheckCircle2,
     Award,
     TrendingUp,
     Sunrise,
@@ -35,6 +39,8 @@ type CurrentMoodState = {
 const defaultMood: CurrentMoodState = {
     type: 'Detecting...',
     confidence: 0,
+// TODO: Replace with the actual URL
+const NGROK_URL = 'https://vibesense.ngrok-free.dev';
     factors: [
         { icon: Cloud, label: 'Weather', value: 'Loading...' },
         { icon: Activity, label: 'Movement', value: 'Loading...' },
@@ -68,7 +74,8 @@ export function HomeScreen() {
     const noiseLevel = useNoiseLevel();
     const [currentMood, setCurrentMood] = useState<CurrentMoodState>(defaultMood);
     const [statusText, setStatusText] = useState<string>('');
-
+    const [isSpotifyConnected, setIsSpotifyConnected] = useState(false);
+  
     useEffect(() => {
         if (!noiseLevel) return;
 
@@ -97,7 +104,6 @@ export function HomeScreen() {
                     hour,
                 });
 
-                //
                 const timeLabel =
                     hour < 6 ? 'Late Night' :
                     hour < 12 ? 'Morning' :
@@ -147,6 +153,75 @@ export function HomeScreen() {
         })();
     }, [activity, noiseLevel]);
 
+    useEffect(() => {
+        const unsubscribeFromAuth = auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                try {
+                    const response = await fetch(`${NGROK_URL}/spotify/status?uid=${user.uid}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        setIsSpotifyConnected(data.isConnected);
+                    }
+                } catch (error) {
+                    console.error("Failed to check Spotify status:", error);
+                    setIsSpotifyConnected(false);
+                }
+            } else {
+                setIsSpotifyConnected(false);
+            }
+        });
+
+        return unsubscribeFromAuth;
+    }, []);
+
+    useEffect(() => {
+        const handleDeepLink = (event: { url: string }) => {
+            const { url } = event;
+            if (url && url.startsWith('vibesense://spotify-connected')) {
+                WebBrowser.dismissBrowser();
+
+                const { queryParams } = Linking.parse(url);
+                if (queryParams?.status === 'success') {
+                    Alert.alert('Success!', 'Your Spotify account has been connected.');
+                    setIsSpotifyConnected(true);
+                } else if (queryParams?.status === 'error') {
+                    Alert.alert(
+                        'Connection Failed',
+                        `Something went wrong: ${queryParams.message || 'Please try again.'}`
+                    );
+                }
+            }
+        };
+
+        const subscription = Linking.addEventListener('url', handleDeepLink);
+        Linking.getInitialURL().then(url => url && handleDeepLink({ url }));
+
+        return () => {
+            subscription.remove();
+        };
+    }, []);
+
+    const handleSpotifyConnect = async () => {
+        const user = auth.currentUser;
+        if (!user) {
+            Alert.alert("Error", "You must be logged in to connect to Spotify.");
+            return;
+        }
+
+        const uid = user.uid;
+        const backendUrl = `${NGROK_URL}/spotify/login?uid=${uid}`;
+
+        try {
+            await WebBrowser.openBrowserAsync(backendUrl);
+        } catch (error) {
+            Alert.alert(
+                "Error",
+                `Could not open browser. Make sure your ngrok tunnel is active.`
+            );
+            console.error(error);
+        }
+    };
+
     return (
         <LinearGradient
             colors={['#0f172a', '#3b0764', '#020617']}
@@ -165,7 +240,6 @@ export function HomeScreen() {
                     ) : null}
                 </Animated.View>
 
-                {/* Current Mood Card */}
                 <View style={styles.cardMargin}>
                     <LinearGradient
                         colors={['#8b5cf6', '#d946ef']}
@@ -211,8 +285,25 @@ export function HomeScreen() {
                         <Text style={styles.statLabel}>Today</Text>
                     </View>
                 </View>
+                <View style={styles.sectionContainer}>
+                    {isSpotifyConnected ? (
+                        <View style={[styles.spotifyButtonGradient, styles.connectedButton]}>
+                            <CheckCircle2 color="white" size={20} />
+                            <Text style={styles.spotifyButtonText}>You are connected to Spotify</Text>
+                        </View>
+                    ) : (
+                        <TouchableOpacity onPress={handleSpotifyConnect} style={styles.spotifyButton}>
+                            <LinearGradient
+                                colors={['#1DB954', '#1ED760']}
+                                style={styles.spotifyButtonGradient}
+                            >
+                                <Zap color="white" size={20} />
+                                <Text style={styles.spotifyButtonText}>Connect to Spotify</Text>
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    )}
+                </View>
 
-                {/* Now Playing */}
                 <View style={styles.sectionContainer}>
                     <View style={styles.sectionHeader}>
                         <Text style={styles.sectionTitle}>Now Playing</Text>
@@ -307,9 +398,9 @@ const styles = StyleSheet.create({
     factorLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 12 },
     factorValue: { color: 'white', fontSize: 14, fontWeight: '500' },
     statsContainer: {
-        marginHorizontal: 20, 
-        marginBottom: 24, 
-        flexDirection: 'row', 
+        marginHorizontal: 20,
+        marginBottom: 24,
+        flexDirection: 'row',
         gap: 12
     },
     statBox: {
@@ -351,8 +442,8 @@ const styles = StyleSheet.create({
     },
     songTitle: { color: 'white', fontSize: 16, fontWeight: '500' },
     songArtist: { color: '#d8b4fe', fontSize: 14 },
-    progressContainer: { 
-        height: 4, 
+    progressContainer: {
+        height: 4,
         backgroundColor: 'rgba(255,255,255,0.2)',
         borderRadius: 2,
         marginTop: 8,
@@ -360,9 +451,9 @@ const styles = StyleSheet.create({
     },
     progressFill: { height: '100%', backgroundColor: 'white', borderRadius: 2 },
     trackItem: {
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        gap: 12, 
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
         backgroundColor: 'rgba(51, 65, 85, 0.5)',
         borderRadius: 12,
         padding: 12,
@@ -388,5 +479,29 @@ const styles = StyleSheet.create({
         gap: 8,
         marginTop: 12,
     },
-    historyButtonText: { color: 'white', fontSize: 14, fontWeight: '500' }
+    historyButtonText: { color: 'white', fontSize: 14, fontWeight: '500' },
+    spotifyButton: {
+        borderRadius: 16,
+        shadowColor: '#1DB954',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 10,
+    },
+    spotifyButtonGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 12,
+        paddingVertical: 16,
+        borderRadius: 16,
+    },
+    spotifyButtonText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    connectedButton: {
+        backgroundColor: '#1aa34a',
+    },
 });
