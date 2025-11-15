@@ -3,6 +3,7 @@ package com.example.vibesense.api
 import com.example.vibesense.api.spotify.spotifyRouting
 import com.example.vibesense.api.weather.WeatherService
 import com.example.vibesense.api.weather.weatherRouting
+import com.example.vibesense.api.ambient.contextRouting
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation as ClientContentNegotiation
@@ -34,6 +35,7 @@ fun main() {
 
         routing {
             weatherRouting(weatherService)
+            contextRouting(weatherService)
             spotifyRouting(client)
         }
 

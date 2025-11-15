@@ -19,18 +19,33 @@ import {
     Home,
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useUserActivity } from '../hooks/useUserActivity';
+import { useNoiseLevel } from '../hooks/useNoiseLevel';
+import * as Location from 'expo-location';
+import { fetchWeatherFromBackend, sendContextToBackend } from '../lib/backendApi';
 
+type MoodFactor = {
+    icon: any;
+    label: string;
+    value: string;
+};
+
+type CurrentMoodState = {
+    type: string;
+    confidence: number;
+    factors: MoodFactor[];
+};
+
+const defaultMood: CurrentMoodState = {
+    type: 'Detecting...',
+    confidence: 0,
 // TODO: Replace with the actual URL
 const NGROK_URL = 'https://vibesense.ngrok-free.dev';
-
-const currentMood = {
-    type: 'Energetic Explorer',
-    confidence: 87,
     factors: [
-        { icon: Cloud, label: 'Weather', value: '24°C Clear' },
-        { icon: Activity, label: 'Movement', value: 'Walking' },
-        { icon: Volume2, label: 'Ambient', value: 'Moderate' },
-        { icon: Sunrise, label: 'Time', value: 'Afternoon' },
+        { icon: Cloud, label: 'Weather', value: 'Loading...' },
+        { icon: Activity, label: 'Movement', value: 'Loading...' },
+        { icon: Volume2, label: 'Ambient', value: 'Loading...' },
+        { icon: Sunrise, label: 'Time', value: 'Loading...' },
     ],
 };
 
@@ -55,13 +70,92 @@ const Progress = ({ value }: { value: number }) => (
 );
 
 export function HomeScreen() {
+    const activity = useUserActivity();
+    const noiseLevel = useNoiseLevel();
+    const [currentMood, setCurrentMood] = useState<CurrentMoodState>(defaultMood);
+    const [statusText, setStatusText] = useState<string>('');
     const [isSpotifyConnected, setIsSpotifyConnected] = useState(false);
+  
+    useEffect(() => {
+        if (!noiseLevel) return;
 
-    // Effect to handle Spotify connection status check, tied to Firebase auth state
+        (async () => {
+            try {
+                setStatusText('Updating mood...');
+
+                const { status } = await Location.requestForegroundPermissionsAsync();
+                if (status !== 'granted') {
+                    setStatusText('Location permission not granted');
+                    return;
+                }
+                const loc = await Location.getCurrentPositionAsync({});
+                const { latitude, longitude } = loc.coords;
+
+                const now = new Date();
+                const hour = now.getHours();
+
+                const weather = await fetchWeatherFromBackend(latitude, longitude);
+
+                const contextResp = await sendContextToBackend({
+                    lat: latitude,
+                    lon: longitude,
+                    activity,
+                    noiseLevel,
+                    hour,
+                });
+
+                const timeLabel =
+                    hour < 6 ? 'Late Night' :
+                    hour < 12 ? 'Morning' :
+                    hour < 18 ? 'Afternoon' :
+                    'Evening';
+
+                const movementLabel =
+                    activity === 'still' ? 'Still' :
+                    activity === 'walking' ? 'Walking' :
+                    'Running';
+
+                const ambientLabel =
+                    noiseLevel === 'quiet' ? 'Quiet' : 'Noisy';
+
+                const newMood: CurrentMoodState = {
+                    type: contextResp.moodTag,
+                    confidence: 87,
+                    factors: [
+                        {
+                            icon: Cloud,
+                            label: 'Weather',
+                            value: `${weather.temperature.toFixed(1)}°C ${weather.condition}`,
+                        },
+                        {
+                            icon: Activity,
+                            label: 'Movement',
+                            value: movementLabel,
+                        },
+                        {
+                            icon: Volume2,
+                            label: 'Ambient',
+                            value: ambientLabel,
+                        },
+                        {
+                            icon: Sunrise,
+                            label: 'Time',
+                            value: timeLabel,
+                        },
+                    ],
+                };
+
+                setCurrentMood(newMood);
+                setStatusText('');
+            } catch (e: any) {
+                setStatusText(`Error: ${e.message}`);
+            }
+        })();
+    }, [activity, noiseLevel]);
+
     useEffect(() => {
         const unsubscribeFromAuth = auth.onAuthStateChanged(async (user) => {
             if (user) {
-                // User is signed in, now we can safely check their Spotify status
                 try {
                     const response = await fetch(`${NGROK_URL}/spotify/status?uid=${user.uid}`);
                     if (response.ok) {
@@ -70,21 +164,18 @@ export function HomeScreen() {
                     }
                 } catch (error) {
                     console.error("Failed to check Spotify status:", error);
-                    setIsSpotifyConnected(false); // Assume not connected on error
+                    setIsSpotifyConnected(false);
                 }
             } else {
-                // User is signed out, so they can't be connected to Spotify
                 setIsSpotifyConnected(false);
             }
         });
 
-        // Cleanup the auth listener on component unmount
         return unsubscribeFromAuth;
-    }, []); // Empty dependency array ensures this runs only once to set up the listener
+    }, []);
 
-    // Effect to handle the deep link callback from Spotify
     useEffect(() => {
-        const handleDeepLink = (event: { url: string; }) => {
+        const handleDeepLink = (event: { url: string }) => {
             const { url } = event;
             if (url && url.startsWith('vibesense://spotify-connected')) {
                 WebBrowser.dismissBrowser();
@@ -92,9 +183,12 @@ export function HomeScreen() {
                 const { queryParams } = Linking.parse(url);
                 if (queryParams?.status === 'success') {
                     Alert.alert('Success!', 'Your Spotify account has been connected.');
-                    setIsSpotifyConnected(true); // Update state for instant feedback
+                    setIsSpotifyConnected(true);
                 } else if (queryParams?.status === 'error') {
-                    Alert.alert('Connection Failed', `Something went wrong: ${queryParams.message || 'Please try again.'}`);
+                    Alert.alert(
+                        'Connection Failed',
+                        `Something went wrong: ${queryParams.message || 'Please try again.'}`
+                    );
                 }
             }
         };
@@ -102,11 +196,10 @@ export function HomeScreen() {
         const subscription = Linking.addEventListener('url', handleDeepLink);
         Linking.getInitialURL().then(url => url && handleDeepLink({ url }));
 
-        // Cleanup the linking listener on component unmount
         return () => {
             subscription.remove();
         };
-    }, []); // Empty dependency array ensures this runs only once to set up the listener
+    }, []);
 
     const handleSpotifyConnect = async () => {
         const user = auth.currentUser;
@@ -121,7 +214,10 @@ export function HomeScreen() {
         try {
             await WebBrowser.openBrowserAsync(backendUrl);
         } catch (error) {
-            Alert.alert("Error", `Could not open browser. Make sure your ngrok tunnel is active.`);
+            Alert.alert(
+                "Error",
+                `Could not open browser. Make sure your ngrok tunnel is active.`
+            );
             console.error(error);
         }
     };
@@ -139,6 +235,9 @@ export function HomeScreen() {
                         <Text style={styles.headerSubtitle}>Home</Text>
                     </View>
                     <Text style={styles.headerTitle}>Your Vibe</Text>
+                    {statusText ? (
+                        <Text style={{ color: '#94a3b8', marginTop: 4 }}>{statusText}</Text>
+                    ) : null}
                 </Animated.View>
 
                 <View style={styles.cardMargin}>
@@ -170,6 +269,8 @@ export function HomeScreen() {
                         </View>
                     </LinearGradient>
                 </View>
+
+                {/* Stats Summary (placeholder) */}
                 <View style={styles.statsContainer}>
                     <View style={styles.statBox}>
                         <Text style={[styles.statValue, { color: '#22d3ee' }]}>247</Text>
@@ -228,8 +329,10 @@ export function HomeScreen() {
                         </View>
                     </LinearGradient>
                 </View>
-                 <View style={styles.sectionContainer}>
-                     <View style={styles.sectionHeader}>
+
+                {/* Recent Tracks */}
+                <View style={styles.sectionContainer}>
+                    <View style={styles.sectionHeader}>
                         <Text style={styles.sectionTitle}>Recent Tracks</Text>
                         <History width={20} height={20} color="#c084fc" />
                     </View>

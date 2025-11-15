@@ -8,10 +8,13 @@ fun Routing.weatherRouting(weatherService: WeatherService) {
 
     get("/weather") {
         try {
-            // TODO: Integrate GPS sensor to get real latitude and longitude from the device.
-            // Using hardcoded coordinates for Bucharest for now.
-            val lat = 44.43
-            val lon = 26.10
+            val lat = call.request.queryParameters["lat"]?.toDoubleOrNull()
+            val lon = call.request.queryParameters["lon"]?.toDoubleOrNull()
+
+            if (lat == null || lon == null) {
+                call.respondText("Invalid latitude or longitude")
+                return@get
+            }
 
             val rawData = weatherService.getWeatherData(lat, lon)
 
