@@ -32,7 +32,6 @@ type MoodFactor = {
 
 type CurrentMoodState = {
     type: string;
-    confidence: number;
     factors: MoodFactor[];
 };
 
@@ -41,7 +40,6 @@ const NGROK_URL = 'https://vibesense.ngrok-free.dev';
 
 const defaultMood: CurrentMoodState = {
     type: 'Detecting...',
-    confidence: 0,
 
     factors: [
         { icon: Cloud, label: 'Weather', value: 'Loading...' },
@@ -122,7 +120,6 @@ export function HomeScreen() {
 
                 const newMood: CurrentMoodState = {
                     type: contextResp.moodTag,
-                    confidence: 87,
                     factors: [
                         {
                             icon: Cloud,
@@ -252,10 +249,6 @@ export function HomeScreen() {
                                 <Text style={styles.moodSubText}>Current Mood</Text>
                                 <Text style={styles.moodTitle}>{currentMood.type}</Text>
                             </View>
-                            <View style={{ alignItems: 'flex-end' }}>
-                                <Text style={styles.moodConfidence}>{currentMood.confidence}%</Text>
-                                <Text style={styles.moodSubText}>Confidence</Text>
-                            </View>
                         </View>
 
                         <View style={styles.factorsGrid}>
@@ -383,7 +376,6 @@ const styles = StyleSheet.create({
     },
     moodSubText: { color: 'rgba(255,255,255,0.7)', fontSize: 14 },
     moodTitle: { color: 'white', fontSize: 24, fontWeight: '600' },
-    moodConfidence: { color: 'white', fontSize: 30, fontWeight: 'bold' },
     factorsGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
