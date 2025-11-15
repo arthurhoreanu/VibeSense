@@ -2,6 +2,7 @@ package com.example.vibesense.api
 
 import com.example.vibesense.api.weather.WeatherService
 import com.example.vibesense.api.weather.weatherRouting
+import com.example.vibesense.api.ambient.contextRouting
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
@@ -20,6 +21,7 @@ fun main() {
 
         routing {
             weatherRouting(weatherService)
+            contextRouting(weatherService)
         }
     }.start(wait = true)
 }

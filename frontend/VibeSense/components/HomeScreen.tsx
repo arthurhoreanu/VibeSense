@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -15,15 +15,31 @@ import {
     Home,
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useUserActivity } from '../hooks/useUserActivity';
+import { useNoiseLevel } from '../hooks/useNoiseLevel';
+import * as Location from 'expo-location';
+import { fetchWeatherFromBackend, sendContextToBackend } from '../lib/backendApi';
 
-const currentMood = {
-    type: 'Energetic Explorer',
-    confidence: 87,
+type MoodFactor = {
+    icon: any;
+    label: string;
+    value: string;
+};
+
+type CurrentMoodState = {
+    type: string;
+    confidence: number;
+    factors: MoodFactor[];
+};
+
+const defaultMood: CurrentMoodState = {
+    type: 'Detecting...',
+    confidence: 0,
     factors: [
-        { icon: Cloud, label: 'Weather', value: '24°C Clear' },
-        { icon: Activity, label: 'Movement', value: 'Walking' },
-        { icon: Volume2, label: 'Ambient', value: 'Moderate' },
-        { icon: Sunrise, label: 'Time', value: 'Afternoon' },
+        { icon: Cloud, label: 'Weather', value: 'Loading...' },
+        { icon: Activity, label: 'Movement', value: 'Loading...' },
+        { icon: Volume2, label: 'Ambient', value: 'Loading...' },
+        { icon: Sunrise, label: 'Time', value: 'Loading...' },
     ],
 };
 
@@ -48,6 +64,89 @@ const Progress = ({ value }: { value: number }) => (
 );
 
 export function HomeScreen() {
+    const activity = useUserActivity();
+    const noiseLevel = useNoiseLevel();
+    const [currentMood, setCurrentMood] = useState<CurrentMoodState>(defaultMood);
+    const [statusText, setStatusText] = useState<string>('');
+
+    useEffect(() => {
+        if (!noiseLevel) return;
+
+        (async () => {
+            try {
+                setStatusText('Updating mood...');
+
+                const { status } = await Location.requestForegroundPermissionsAsync();
+                if (status !== 'granted') {
+                    setStatusText('Location permission not granted');
+                    return;
+                }
+                const loc = await Location.getCurrentPositionAsync({});
+                const { latitude, longitude } = loc.coords;
+
+                const now = new Date();
+                const hour = now.getHours();
+
+                const weather = await fetchWeatherFromBackend(latitude, longitude);
+
+                const contextResp = await sendContextToBackend({
+                    lat: latitude,
+                    lon: longitude,
+                    activity,
+                    noiseLevel,
+                    hour,
+                });
+
+                //
+                const timeLabel =
+                    hour < 6 ? 'Late Night' :
+                    hour < 12 ? 'Morning' :
+                    hour < 18 ? 'Afternoon' :
+                    'Evening';
+
+                const movementLabel =
+                    activity === 'still' ? 'Still' :
+                    activity === 'walking' ? 'Walking' :
+                    'Running';
+
+                const ambientLabel =
+                    noiseLevel === 'quiet' ? 'Quiet' : 'Noisy';
+
+                const newMood: CurrentMoodState = {
+                    type: contextResp.moodTag,
+                    confidence: 87,
+                    factors: [
+                        {
+                            icon: Cloud,
+                            label: 'Weather',
+                            value: `${weather.temperature.toFixed(1)}°C ${weather.condition}`,
+                        },
+                        {
+                            icon: Activity,
+                            label: 'Movement',
+                            value: movementLabel,
+                        },
+                        {
+                            icon: Volume2,
+                            label: 'Ambient',
+                            value: ambientLabel,
+                        },
+                        {
+                            icon: Sunrise,
+                            label: 'Time',
+                            value: timeLabel,
+                        },
+                    ],
+                };
+
+                setCurrentMood(newMood);
+                setStatusText('');
+            } catch (e: any) {
+                setStatusText(`Error: ${e.message}`);
+            }
+        })();
+    }, [activity, noiseLevel]);
+
     return (
         <LinearGradient
             colors={['#0f172a', '#3b0764', '#020617']}
@@ -61,6 +160,9 @@ export function HomeScreen() {
                         <Text style={styles.headerSubtitle}>Home</Text>
                     </View>
                     <Text style={styles.headerTitle}>Your Vibe</Text>
+                    {statusText ? (
+                        <Text style={{ color: '#94a3b8', marginTop: 4 }}>{statusText}</Text>
+                    ) : null}
                 </Animated.View>
 
                 {/* Current Mood Card */}
@@ -94,7 +196,7 @@ export function HomeScreen() {
                     </LinearGradient>
                 </View>
 
-                {/* Stats Summary */}
+                {/* Stats Summary (placeholder) */}
                 <View style={styles.statsContainer}>
                     <View style={styles.statBox}>
                         <Text style={[styles.statValue, { color: '#22d3ee' }]}>247</Text>
@@ -139,7 +241,7 @@ export function HomeScreen() {
 
                 {/* Recent Tracks */}
                 <View style={styles.sectionContainer}>
-                     <View style={styles.sectionHeader}>
+                    <View style={styles.sectionHeader}>
                         <Text style={styles.sectionTitle}>Recent Tracks</Text>
                         <History width={20} height={20} color="#c084fc" />
                     </View>
@@ -198,8 +300,8 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.1)',
         borderRadius: 12,
         padding: 12,
-        width: '48.5%', // Ajustat pentru a permite spatiu
-        marginBottom: 10, // Adaugat spatiu vertical
+        width: '48.5%',
+        marginBottom: 10,
     },
     factorHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
     factorLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 12 },
