@@ -15,3 +15,5 @@
 /backend/local.properties
 
 /.kotlin/
+
+/frontend/google-services.json

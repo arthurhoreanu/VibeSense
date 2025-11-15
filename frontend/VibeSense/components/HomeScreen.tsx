@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as WebBrowser from 'expo-web-browser';
-import { auth } from '../config/firebaseConfig';
+import { auth } from '@/config/firebaseConfig';
 import * as Linking from 'expo-linking';
 import { 
     Play,
@@ -36,11 +36,13 @@ type CurrentMoodState = {
     factors: MoodFactor[];
 };
 
+// TODO: Replace with the actual URL
+const NGROK_URL = 'https://vibesense.ngrok-free.dev';
+
 const defaultMood: CurrentMoodState = {
     type: 'Detecting...',
     confidence: 0,
-// TODO: Replace with the actual URL
-const NGROK_URL = 'https://vibesense.ngrok-free.dev';
+
     factors: [
         { icon: Cloud, label: 'Weather', value: 'Loading...' },
         { icon: Activity, label: 'Movement', value: 'Loading...' },
