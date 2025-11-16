@@ -36,6 +36,56 @@ type CurrentMoodState = {
 // TODO: Replace with the actual URL
 const NGROK_URL = 'https://vibesense.ngrok-free.dev';
 
+
+function mapMoodTagToLabel(moodTag: string): string {
+    if (!moodTag) return 'Your Vibe';
+
+    const parts = moodTag.split('_');
+    if (parts.length < 3) {
+        return moodTag;
+    }
+
+    const [partOfDay, condition, activity] = parts as [string, string, string];
+
+    const timeLabels: Record<string, string> = {
+        morning: 'Morning',
+        day: 'Daytime',
+        evening: 'Evening',
+        night: 'Late Night',
+    };
+
+    const conditionLabels: Record<string, string> = {
+        'Clear sky': 'Sunny',
+        'Mainly clear': 'Bright',
+        'Partly cloudy': 'Soft Clouds',
+        'Overcast': 'Moody Sky',
+        'Fog': 'Foggy',
+        'Drizzle': 'Drizzly',
+        'Freezing Drizzle': 'Icy Drizzle',
+        'Rain': 'Rainy',
+        'Freezing Rain': 'Icy Rain',
+        'Snow fall': 'Snowy',
+        'Snow grains': 'Snow Dust',
+        'Rain showers': 'Showers',
+        'Snow showers': 'Snow Showers',
+        'Thunderstorm': 'Stormy',
+        'Thunderstorm with hail': 'Hailstorm',
+    };
+
+    const activityLabels: Record<string, string> = {
+        still: 'Chill',
+        walking: 'Walker',
+        running: 'Runner',
+    };
+
+    const time = timeLabels[partOfDay] ?? '';
+    const cond = conditionLabels[condition] ?? condition;
+    const act = activityLabels[activity] ?? '';
+
+    const pieces = [time, cond, act].filter(Boolean);
+    return pieces.join(' ');
+}
+
 const defaultMood: CurrentMoodState = {
     type: 'Detecting...',
 
@@ -111,7 +161,7 @@ export function HomeScreen() {
 
 
                 const newMood: CurrentMoodState = {
-                    type: contextResp.moodTag,
+                    type: mapMoodTagToLabel(contextResp.moodTag),
                     factors: [
                         {
                             icon: Cloud,
