@@ -1,20 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
-import { Heart, Share2, MoreVertical, SkipBack, SkipForward, Play, Pause, Repeat, Shuffle } from 'lucide-react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Image } from 'react-native';
+import { Share2, MoreVertical, SkipBack, SkipForward, Play, Pause } from 'lucide-react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withRepeat, withSequence, Easing } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Slider } from './ui/slider';
+import useNowPlaying from '../hooks/useNowPlaying';
+import { useMood } from '../context/MoodContext';
+import { play, pause, next, previous, seek } from '../lib/backendApi';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
-const track = {
-  title: 'Neon Nights',
-  artist: 'Cyber Dreams',
-  album: 'Electric Future',
-  duration: 234,
-};
-
-const VisualizerBar = ({ isPlaying, index }: { isPlaying: boolean, index: number }) => {
+const VisualizerBar = ({ isPlaying }: { isPlaying: boolean }) => {
   const heightValue = useSharedValue(10);
 
   useEffect(() => {
@@ -37,21 +33,33 @@ const VisualizerBar = ({ isPlaying, index }: { isPlaying: boolean, index: number
   return <Animated.View style={[styles.visualizerBar, animatedStyle]} />;
 };
 
-
 export function NowPlayingVariant() {
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [isLiked, setIsLiked] = useState(false);
-  const [progress, setProgress] = useState(127);
+  const { nowPlaying, loading, error, refreshNowPlaying } = useNowPlaying();
+  const { mood } = useMood();
+
+  const isPlaying = nowPlaying?.isPlaying ?? false;
+  const [optimisticIsPlaying, setOptimisticIsPlaying] = useState(isPlaying);
+  const [optimisticProgress, setOptimisticProgress] = useState(nowPlaying?.progressMs ?? 0);
 
   const rotation = useSharedValue(0);
 
   useEffect(() => {
-    if (isPlaying) {
+    setOptimisticIsPlaying(isPlaying);
+  }, [isPlaying]);
+
+  useEffect(() => {
+    if (nowPlaying?.progressMs) {
+      setOptimisticProgress(nowPlaying.progressMs);
+    }
+  }, [nowPlaying?.progressMs]);
+
+  useEffect(() => {
+    if (optimisticIsPlaying) {
       rotation.value = withRepeat(withTiming(360, { duration: 20000, easing: Easing.linear }), -1);
     } else {
       rotation.value = withTiming(rotation.value, { duration: 500 });
     }
-  }, [isPlaying]);
+  }, [optimisticIsPlaying]);
 
   const animatedAlbumStyle = useAnimatedStyle(() => {
     return {
@@ -59,75 +67,111 @@ export function NowPlayingVariant() {
     };
   });
 
+  const handlePlayPause = async () => {
+    setOptimisticIsPlaying(current => !current);
+    if (isPlaying) {
+      await pause();
+    } else {
+      await play();
+    }
+    setTimeout(refreshNowPlaying, 500);
+  };
+
+  const handleNext = async () => {
+    await next();
+    setTimeout(refreshNowPlaying, 1000); // Longer delay for track change
+  };
+
+  const handlePrevious = async () => {
+    await previous();
+    setTimeout(refreshNowPlaying, 1000); // Longer delay for track change
+  };
+
+  const handleSeek = async (value: number) => {
+    setOptimisticProgress(value);
+    await seek(value);
+    setTimeout(refreshNowPlaying, 1000);
+  };
+
+  if (loading) {
+      return (
+          <LinearGradient colors={['#000', '#11052C', '#000']} style={styles.container}>
+              <Text style={styles.trackTitle}>Loading...</Text>
+          </LinearGradient>
+      )
+  }
+
+  if (error || !nowPlaying || !nowPlaying.isPlaying) {
+    return (
+      <LinearGradient colors={['#000', '#11052C', '#000']} style={styles.container}>
+          <View style={styles.centeredMessage}>
+            <Text style={styles.trackTitle}>Nothing is playing</Text>
+            <Text style={styles.trackArtist}>Connect to Spotify and play a song to get started.</Text>
+          </View>
+      </LinearGradient>
+    )
+  }
+
+  const duration = nowPlaying.durationMs || 1;
+
   return (
     <LinearGradient colors={['#000', '#11052C', '#000']} style={styles.container}>
-      {/* Top Bar */}
       <View style={styles.topBar}>
         <TouchableOpacity style={styles.iconButton}>
           <MoreVertical color="white" size={22} />
         </TouchableOpacity>
         <View>
-          <Text style={styles.topBarSubtitle}>PLAYING FROM</Text>
-          <Text style={styles.topBarTitle}>Energetic Mix</Text>
+          <Text style={styles.topBarSubtitle}>CURRENT MOOD</Text>
+          <Text style={styles.topBarTitle}>{mood.type}</Text>
         </View>
         <TouchableOpacity style={styles.iconButton}>
           <Share2 color="white" size={22} />
         </TouchableOpacity>
       </View>
 
-      {/* Album Art */}
       <View style={styles.albumArtContainer}>
         <Animated.View style={[styles.albumArt, animatedAlbumStyle]}>
-            <Text style={{ fontSize: 80 }}>🎵</Text>
+             <Image source={{ uri: nowPlaying.albumImageUrl || undefined }} style={{ width: '100%', height: '100%', borderRadius: 24 }} />
         </Animated.View>
       </View>
 
-      {/* Track Info */}
       <View style={styles.trackInfoContainer}>
-        <Text style={styles.trackTitle}>{track.title}</Text>
-        <Text style={styles.trackArtist}>{track.artist}</Text>
+        <Text style={styles.trackTitle}>{nowPlaying.trackName}</Text>
+        <Text style={styles.trackArtist}>{nowPlaying.artistName}</Text>
       </View>
 
-      {/* Progress Bar */}
       <View style={styles.progressContainer}>
         <Slider
-          value={progress}
-          max={track.duration}
-          onValueChange={setProgress}
+          value={optimisticProgress}
+          max={duration}
+          onValueChange={(value) => setOptimisticProgress(value[0])}
+          onSlidingComplete={(value) => handleSeek(value[0])}
         />
         <View style={styles.timeContainer}>
-          <Text style={styles.timeText}>{Math.floor(progress / 60)}:{(progress % 60).toString().padStart(2, '0')}</Text>
-          <Text style={styles.timeText}>{Math.floor(track.duration / 60)}:{(track.duration % 60).toString().padStart(2, '0')}</Text>
+          <Text style={styles.timeText}>{Math.floor(optimisticProgress / 1000 / 60)}:{(Math.floor(optimisticProgress / 1000) % 60).toString().padStart(2, '0')}</Text>
+          <Text style={styles.timeText}>{Math.floor(duration / 1000 / 60)}:{(Math.floor(duration / 1000) % 60).toString().padStart(2, '0')}</Text>
         </View>
       </View>
 
-      {/* Controls */}
       <View style={styles.controlsContainer}>
-        <TouchableOpacity>
-          <Shuffle color="#aaa" size={24} />
-        </TouchableOpacity>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={handlePrevious}>
           <SkipBack color="white" size={32} fill="white" />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.playButton} onPress={() => setIsPlaying(!isPlaying)}>
-          {isPlaying ? (
+        <TouchableOpacity style={styles.playButton} onPress={handlePlayPause}>
+          {optimisticIsPlaying ? (
             <Pause color="white" size={32} fill="white" />
           ) : (
             <Play color="white" size={32} fill="white" style={{ marginLeft: 4 }}/>
           )}
         </TouchableOpacity>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={handleNext}>
           <SkipForward color="white" size={32} fill="white" />
         </TouchableOpacity>
-        <TouchableOpacity>
-          <Repeat color="#aaa" size={24} />
-        </TouchableOpacity>
       </View>
-      
-      {/* Visualizer */}
-      <View style={styles.visualizerContainer}>
+
+      <View style={styles.visualizerContainer} pointerEvents="none">
         {Array.from({ length: 40 }).map((_, i) => (
-          <VisualizerBar key={i} isPlaying={isPlaying} index={i} />
+          <VisualizerBar key={i} isPlaying={optimisticIsPlaying} />
         ))}
       </View>
     </LinearGradient>
@@ -139,6 +183,11 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
     justifyContent: 'space-between',
+  },
+  centeredMessage: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   topBar: {
     flexDirection: 'row',
@@ -190,11 +239,13 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 28,
     fontWeight: 'bold',
+    textAlign: 'center',
   },
   trackArtist: {
     color: '#D8B4FE', // purple-300
     fontSize: 18,
     marginTop: 4,
+    textAlign: 'center',
   },
   progressContainer: {
     marginBottom: 20,
@@ -210,9 +261,10 @@ const styles = StyleSheet.create({
   },
   controlsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 40,
+    gap: 35,
   },
   playButton: {
     width: 70,

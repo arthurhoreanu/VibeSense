@@ -23,3 +23,47 @@ data class QueueRequest(
     @SerialName("track_uri")
     val trackUri: String
 )
+
+@Serializable
+data class NowPlayingResponse(
+    val isPlaying: Boolean,
+    val trackName: String?,
+    val artistName: String?,
+    val albumName: String?,
+    val durationMs: Int?,
+    val progressMs: Int?,
+    val albumImageUrl: String?
+)
+
+@Serializable
+data class SpotifyCurrentlyPlaying(
+    @SerialName("is_playing") val isPlaying: Boolean,
+    @SerialName("progress_ms") val progressMs: Int?,
+    val item: SpotifyTrack?
+)
+
+@Serializable
+data class SpotifyTrack(
+    val name: String,
+    @SerialName("duration_ms") val durationMs: Int,
+    val album: SpotifyAlbum,
+    val artists: List<SpotifyArtist>
+)
+
+@Serializable
+data class SpotifyAlbum(
+    val name: String,
+    val images: List<SpotifyImage>
+)
+
+@Serializable
+data class SpotifyArtist(
+    val name: String
+)
+
+@Serializable
+data class SpotifyImage(
+    val url: String,
+    val height: Int,
+    val width: Int
+)
