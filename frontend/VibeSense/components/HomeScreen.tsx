@@ -238,7 +238,7 @@ export function HomeScreen() {
                             </View>
                         </View>
 
-                        <View style={styles.factorsGrid}>
+                        <View>
                             {currentMood.factors.map((factor, i) => (
                                 <View key={i} style={styles.factorItem}>
                                     <View style={styles.factorHeader}>
@@ -358,22 +358,17 @@ const styles = StyleSheet.create({
     moodHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         marginBottom: 16,
     },
-    moodSubText: { color: 'rgba(255,255,255,0.7)', fontSize: 14 },
-    moodTitle: { color: 'white', fontSize: 24, fontWeight: '600' },
-    factorsGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'space-between',
-    },
+    moodSubText: { color: 'rgba(255,255,255,0.7)', fontSize: 14, textAlign: 'center' },
+    moodTitle: { color: 'white', fontSize: 24, fontWeight: '600', textAlign: 'center' },
     factorItem: {
         backgroundColor: 'rgba(255,255,255,0.1)',
         borderRadius: 12,
         padding: 12,
-        width: '48.5%',
         marginBottom: 10,
+        alignItems: 'center',
     },
     factorHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
     factorLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 12 },
