@@ -23,11 +23,11 @@ fun Routing.contextRouting(weatherService: WeatherService) {
                 else -> "night"
             }
 
-            val moodTag = "${partOfDay}_${condition}_${req.activity}_${req.noiseLevel}"
+            val moodTag = "${partOfDay}_${condition}_${req.activity}"
 
             val resp = ContextResponse(
                 moodTag = moodTag,
-                message = "Using $condition, activity=${req.activity}, noise=${req.noiseLevel}, hour=${req.hour}"
+                message = "Using $condition, activity=${req.activity}, hour=${req.hour}"
             )
 
             call.respond(resp)

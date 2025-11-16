@@ -7,7 +7,6 @@ import * as Linking from 'expo-linking';
 import { 
     Play,
     Activity,
-    Volume2,
     Cloud,
     Zap,
     CheckCircle2,
@@ -20,7 +19,6 @@ import {
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useUserActivity } from '../hooks/useUserActivity';
-import { useNoiseLevel } from '../hooks/useNoiseLevel';
 import * as Location from 'expo-location';
 import { fetchWeatherFromBackend, sendContextToBackend } from '../lib/backendApi';
 
@@ -44,7 +42,6 @@ const defaultMood: CurrentMoodState = {
     factors: [
         { icon: Cloud, label: 'Weather', value: 'Loading...' },
         { icon: Activity, label: 'Movement', value: 'Loading...' },
-        { icon: Volume2, label: 'Ambient', value: 'Loading...' },
         { icon: Sunrise, label: 'Time', value: 'Loading...' },
     ],
 };
@@ -71,13 +68,11 @@ const Progress = ({ value }: { value: number }) => (
 
 export function HomeScreen() {
     const activity = useUserActivity();
-    const noiseLevel = useNoiseLevel();
     const [currentMood, setCurrentMood] = useState<CurrentMoodState>(defaultMood);
     const [statusText, setStatusText] = useState<string>('');
     const [isSpotifyConnected, setIsSpotifyConnected] = useState(false);
   
     useEffect(() => {
-        if (!noiseLevel) return;
 
         (async () => {
             try {
@@ -100,7 +95,6 @@ export function HomeScreen() {
                     lat: latitude,
                     lon: longitude,
                     activity,
-                    noiseLevel,
                     hour,
                 });
 
@@ -115,8 +109,6 @@ export function HomeScreen() {
                     activity === 'walking' ? 'Walking' :
                     'Running';
 
-                const ambientLabel =
-                    noiseLevel === 'quiet' ? 'Quiet' : 'Noisy';
 
                 const newMood: CurrentMoodState = {
                     type: contextResp.moodTag,
@@ -132,11 +124,6 @@ export function HomeScreen() {
                             value: movementLabel,
                         },
                         {
-                            icon: Volume2,
-                            label: 'Ambient',
-                            value: ambientLabel,
-                        },
-                        {
                             icon: Sunrise,
                             label: 'Time',
                             value: timeLabel,
@@ -150,7 +137,7 @@ export function HomeScreen() {
                 setStatusText(`Error: ${e.message}`);
             }
         })();
-    }, [activity, noiseLevel]);
+    }, [activity]);
 
     useEffect(() => {
         const unsubscribeFromAuth = auth.onAuthStateChanged(async (user) => {
@@ -251,7 +238,7 @@ export function HomeScreen() {
                             </View>
                         </View>
 
-                        <View style={styles.factorsGrid}>
+                        <View>
                             {currentMood.factors.map((factor, i) => (
                                 <View key={i} style={styles.factorItem}>
                                     <View style={styles.factorHeader}>
@@ -371,22 +358,17 @@ const styles = StyleSheet.create({
     moodHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         marginBottom: 16,
     },
-    moodSubText: { color: 'rgba(255,255,255,0.7)', fontSize: 14 },
-    moodTitle: { color: 'white', fontSize: 24, fontWeight: '600' },
-    factorsGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'space-between',
-    },
+    moodSubText: { color: 'rgba(255,255,255,0.7)', fontSize: 14, textAlign: 'center' },
+    moodTitle: { color: 'white', fontSize: 24, fontWeight: '600', textAlign: 'center' },
     factorItem: {
         backgroundColor: 'rgba(255,255,255,0.1)',
         borderRadius: 12,
         padding: 12,
-        width: '48.5%',
         marginBottom: 10,
+        alignItems: 'center',
     },
     factorHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
     factorLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 12 },

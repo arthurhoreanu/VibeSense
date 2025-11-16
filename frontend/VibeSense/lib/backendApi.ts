@@ -38,7 +38,6 @@ export async function sendContextToBackend(params: {
   lat: number;
   lon: number;
   activity: "still" | "walking" | "running";
-  noiseLevel: "quiet" | "noisy";
   hour: number;
 }): Promise<ContextResponse> {
   const res = await fetch(`${BACKEND_URL}/context`, {
