@@ -1,108 +1,16 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as WebBrowser from 'expo-web-browser';
 import { auth } from '@/config/firebaseConfig';
 import * as Linking from 'expo-linking';
-import { 
-    Play,
-    Activity,
-    Cloud,
-    Zap,
-    CheckCircle2,
-    Award,
-    TrendingUp,
-    Sunrise,
-    ChevronRight,
-    History,
-    Home,
-} from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { Play, CheckCircle2, ChevronRight, History, Home, Zap } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { useUserActivity } from '../hooks/useUserActivity';
-import * as Location from 'expo-location';
-import { fetchWeatherFromBackend, sendContextToBackend } from '../lib/backendApi';
+import useNowPlaying from '../hooks/useNowPlaying';
+import { useMood } from '../context/MoodContext';
 
-type MoodFactor = {
-    icon: any;
-    label: string;
-    value: string;
-};
-
-type CurrentMoodState = {
-    type: string;
-    factors: MoodFactor[];
-};
-
-// TODO: Replace with the actual URL
-const NGROK_URL = 'https://vibesense.ngrok-free.dev';
-
-
-function mapMoodTagToLabel(moodTag: string): string {
-    if (!moodTag) return 'Your Vibe';
-
-    const parts = moodTag.split('_');
-    if (parts.length < 3) {
-        return moodTag;
-    }
-
-    const [partOfDay, condition, activity] = parts as [string, string, string];
-
-    const timeLabels: Record<string, string> = {
-        morning: 'Morning',
-        day: 'Daytime',
-        evening: 'Evening',
-        night: 'Late Night',
-    };
-
-    const conditionLabels: Record<string, string> = {
-        'Clear sky': 'Sunny',
-        'Mainly clear': 'Bright',
-        'Partly cloudy': 'Soft Clouds',
-        'Overcast': 'Moody Sky',
-        'Fog': 'Foggy',
-        'Drizzle': 'Drizzly',
-        'Freezing Drizzle': 'Icy Drizzle',
-        'Rain': 'Rainy',
-        'Freezing Rain': 'Icy Rain',
-        'Snow fall': 'Snowy',
-        'Snow grains': 'Snow Dust',
-        'Rain showers': 'Showers',
-        'Snow showers': 'Snow Showers',
-        'Thunderstorm': 'Stormy',
-        'Thunderstorm with hail': 'Hailstorm',
-    };
-
-    const activityLabels: Record<string, string> = {
-        still: 'Chill',
-        walking: 'Walker',
-        running: 'Runner',
-    };
-
-    const time = timeLabels[partOfDay] ?? '';
-    const cond = conditionLabels[condition] ?? condition;
-    const act = activityLabels[activity] ?? '';
-
-    const pieces = [time, cond, act].filter(Boolean);
-    return pieces.join(' ');
-}
-
-const defaultMood: CurrentMoodState = {
-    type: 'Detecting...',
-
-    factors: [
-        { icon: Cloud, label: 'Weather', value: 'Loading...' },
-        { icon: Activity, label: 'Movement', value: 'Loading...' },
-        { icon: Sunrise, label: 'Time', value: 'Loading...' },
-    ],
-};
-
-const currentSong = {
-    title: 'Apple',
-    artist: 'Charli xcx',
-    album: 'BRAT',
-    duration: 154,
-    current: 67,
-};
+const NGROK_URL = 'https://lavera-uncountermandable-orbiculately.ngrok-free.dev';
 
 const recentTracks = [
     { time: '2h ago', title: 'Espresso', artist: 'Sabrina Carpenter', colors: ['#3b82f6', '#06b6d4'] as const },
@@ -117,78 +25,11 @@ const Progress = ({ value }: { value: number }) => (
 );
 
 export function HomeScreen() {
-    const activity = useUserActivity();
-    const [currentMood, setCurrentMood] = useState<CurrentMoodState>(defaultMood);
-    const [statusText, setStatusText] = useState<string>('');
+    const router = useRouter();
+    const { mood, loading: moodLoading, error: moodError } = useMood();
     const [isSpotifyConnected, setIsSpotifyConnected] = useState(false);
+    const { nowPlaying } = useNowPlaying();
   
-    useEffect(() => {
-
-        (async () => {
-            try {
-                setStatusText('Updating mood...');
-
-                const { status } = await Location.requestForegroundPermissionsAsync();
-                if (status !== 'granted') {
-                    setStatusText('Location permission not granted');
-                    return;
-                }
-                const loc = await Location.getCurrentPositionAsync({});
-                const { latitude, longitude } = loc.coords;
-
-                const now = new Date();
-                const hour = now.getHours();
-
-                const weather = await fetchWeatherFromBackend(latitude, longitude);
-
-                const contextResp = await sendContextToBackend({
-                    lat: latitude,
-                    lon: longitude,
-                    activity,
-                    hour,
-                });
-
-                const timeLabel =
-                    hour < 6 ? 'Late Night' :
-                    hour < 12 ? 'Morning' :
-                    hour < 18 ? 'Afternoon' :
-                    'Evening';
-
-                const movementLabel =
-                    activity === 'still' ? 'Still' :
-                    activity === 'walking' ? 'Walking' :
-                    'Running';
-
-
-                const newMood: CurrentMoodState = {
-                    type: mapMoodTagToLabel(contextResp.moodTag),
-                    factors: [
-                        {
-                            icon: Cloud,
-                            label: 'Weather',
-                            value: `${weather.temperature.toFixed(1)}°C ${weather.condition}`,
-                        },
-                        {
-                            icon: Activity,
-                            label: 'Movement',
-                            value: movementLabel,
-                        },
-                        {
-                            icon: Sunrise,
-                            label: 'Time',
-                            value: timeLabel,
-                        },
-                    ],
-                };
-
-                setCurrentMood(newMood);
-                setStatusText('');
-            } catch (e: any) {
-                setStatusText(`Error: ${e.message}`);
-            }
-        })();
-    }, [activity]);
-
     useEffect(() => {
         const unsubscribeFromAuth = auth.onAuthStateChanged(async (user) => {
             if (user) {
@@ -271,9 +112,8 @@ export function HomeScreen() {
                         <Text style={styles.headerSubtitle}>Home</Text>
                     </View>
                     <Text style={styles.headerTitle}>Your Vibe</Text>
-                    {statusText ? (
-                        <Text style={{ color: '#94a3b8', marginTop: 4 }}>{statusText}</Text>
-                    ) : null}
+                    {moodLoading && <Text style={{ color: '#94a3b8', marginTop: 4 }}>Updating mood...</Text>}
+                    {moodError && <Text style={{ color: '#f87171', marginTop: 4 }}>{moodError}</Text>}
                 </Animated.View>
 
                 <View style={styles.cardMargin}>
@@ -284,12 +124,12 @@ export function HomeScreen() {
                         <View style={styles.moodHeader}>
                             <View>
                                 <Text style={styles.moodSubText}>Current Mood</Text>
-                                <Text style={styles.moodTitle}>{currentMood.type}</Text>
+                                <Text style={styles.moodTitle}>{mood.type}</Text>
                             </View>
                         </View>
 
                         <View>
-                            {currentMood.factors.map((factor, i) => (
+                            {mood.factors.map((factor, i) => (
                                 <View key={i} style={styles.factorItem}>
                                     <View style={styles.factorHeader}>
                                         <factor.icon width={16} height={16} color="white" />
@@ -336,7 +176,8 @@ export function HomeScreen() {
                     )}
                 </View>
 
-                <View style={styles.sectionContainer}>
+                {nowPlaying?.isPlaying && (
+                <TouchableOpacity onPress={() => router.push('/playing')} style={styles.sectionContainer}>
                     <View style={styles.sectionHeader}>
                         <Text style={styles.sectionTitle}>Now Playing</Text>
                         <View style={styles.liveBadge}>
@@ -350,17 +191,16 @@ export function HomeScreen() {
                         style={styles.playingCard}
                     >
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-                            <LinearGradient colors={['#a855f7', '#ec4899']} style={styles.playIconContainer}>
-                                <Play width={24} height={24} color="white" fill="white" />
-                            </LinearGradient>
+                             <Image source={{ uri: nowPlaying.albumImageUrl || undefined }} style={styles.playIconContainer} />
                             <View style={{ flex: 1 }}>
-                                <Text style={styles.songTitle}>{currentSong.title}</Text>
-                                <Text style={styles.songArtist}>{currentSong.artist}</Text>
-                                <Progress value={(currentSong.current / currentSong.duration) * 100} />
+                                <Text style={styles.songTitle}>{nowPlaying.trackName}</Text>
+                                <Text style={styles.songArtist}>{nowPlaying.artistName}</Text>
+                                <Progress value={(nowPlaying.progressMs && nowPlaying.durationMs) ? (nowPlaying.progressMs / nowPlaying.durationMs) * 100 : 0} />
                             </View>
                         </View>
                     </LinearGradient>
-                </View>
+                </TouchableOpacity>
+                )}
 
                 {/* Recent Tracks */}
                 <View style={styles.sectionContainer}>
@@ -407,7 +247,7 @@ const styles = StyleSheet.create({
     moodCard: { borderRadius: 24, padding: 24, overflow: 'hidden' },
     moodHeader: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
+        justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 16,
     },

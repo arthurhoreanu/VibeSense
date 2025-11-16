@@ -18,6 +18,10 @@ import java.util.Base64
 @Serializable
 data class SpotifyStatusResponse(val isConnected: Boolean)
 
+@Serializable
+data class PlaybackRequest(val uid: String)
+
+
 fun Routing.spotifyRouting(client: HttpClient) {
 
     /**
@@ -26,7 +30,7 @@ fun Routing.spotifyRouting(client: HttpClient) {
     get("/spotify/login") {
         val uid = call.parameters["uid"] ?: return@get call.respondText("Missing user ID", status = HttpStatusCode.BadRequest)
         val state = uid
-        
+
         val scopes = listOf(
             "user-modify-playback-state",
             "user-read-playback-state",
@@ -82,18 +86,62 @@ fun Routing.spotifyRouting(client: HttpClient) {
     }
 
     /**
-     * NEW: Check if a user has valid Spotify tokens.
+     * Check if a user has valid Spotify tokens.
      */
     get("/spotify/status") {
         val uid = call.parameters["uid"] ?: return@get call.respond(HttpStatusCode.BadRequest, "Missing user ID")
-        
+
         val hasToken = TokenStorage.getAccessToken(uid) != null
-        
+
         call.respond(SpotifyStatusResponse(isConnected = hasToken))
     }
-    
+
     /**
-     * Step 3: Add a song to the user's Spotify queue.
+     * Get the user's currently playing track.
+     */
+    get("/spotify/now-playing") {
+        val uid = call.parameters["uid"] ?: return@get call.respond(HttpStatusCode.BadRequest, "Missing user ID")
+
+        val accessToken = TokenStorage.getAccessToken(uid)
+        if (accessToken == null) {
+            return@get call.respond(HttpStatusCode.Unauthorized, "User not authenticated or token expired.")
+        }
+
+        try {
+            val response: HttpResponse = client.get("https://api.spotify.com/v1/me/player/currently-playing") {
+                bearerAuth(accessToken)
+            }
+
+            if (response.status == HttpStatusCode.NoContent) {
+                return@get call.respond(NowPlayingResponse(isPlaying = false, null, null, null, null, null, null))
+            }
+
+            if (response.status.isSuccess()) {
+                val spotifyResponse = response.body<SpotifyCurrentlyPlaying>()
+                val track = spotifyResponse.item
+                val nowPlaying = NowPlayingResponse(
+                    isPlaying = spotifyResponse.isPlaying,
+                    trackName = track?.name,
+                    artistName = track?.artists?.joinToString { it.name },
+                    albumName = track?.album?.name,
+                    durationMs = track?.durationMs,
+                    progressMs = spotifyResponse.progressMs,
+                    albumImageUrl = track?.album?.images?.firstOrNull()?.url
+                )
+                call.respond(nowPlaying)
+            } else {
+                val errorBody = response.bodyAsText()
+                application.log.warn("Could not get 'now playing' for user $uid. Spotify responded with ${response.status}: $errorBody")
+                call.respond(response.status, "Error from Spotify: $errorBody")
+            }
+        } catch (e: Exception) {
+            application.log.error("Exception while getting 'now playing' for user $uid", e)
+            call.respond(HttpStatusCode.InternalServerError, "An internal error occurred.")
+        }
+    }
+
+    /**
+     * Add a song to the user's Spotify queue.
      */
     post("/spotify/queue") {
         val request = try {
@@ -125,6 +173,126 @@ fun Routing.spotifyRouting(client: HttpClient) {
 
         } catch (e: Exception) {
             application.log.error("Exception while adding to queue for user ${request.uid}", e)
+            call.respond(HttpStatusCode.InternalServerError, "An internal error occurred.")
+        }
+    }
+
+    put("/spotify/play") {
+        val request = try {
+            call.receive<PlaybackRequest>()
+        } catch (e: Exception) {
+            return@put call.respond(HttpStatusCode.BadRequest, "Invalid request body")
+        }
+
+        val accessToken = TokenStorage.getAccessToken(request.uid)
+        if (accessToken == null) {
+            return@put call.respond(HttpStatusCode.Unauthorized, "User not authenticated or token expired. Please log in again.")
+        }
+
+        try {
+            val response: HttpResponse = client.put("https://api.spotify.com/v1/me/player/play") {
+                bearerAuth(accessToken)
+            }
+
+            if (response.status.isSuccess()) {
+                call.respond(HttpStatusCode.OK, "Playback resumed.")
+            } else {
+                val errorBody = response.bodyAsText()
+                application.log.warn("Failed to resume playback for user ${request.uid}. Spotify responded with ${response.status}: $errorBody")
+                call.respond(response.status, "Error from Spotify: $errorBody")
+            }
+        } catch (e: Exception) {
+            application.log.error("Exception while resuming playback for user ${request.uid}", e)
+            call.respond(HttpStatusCode.InternalServerError, "An internal error occurred.")
+        }
+    }
+
+    put("/spotify/pause") {
+        val request = try {
+            call.receive<PlaybackRequest>()
+        } catch (e: Exception) {
+            return@put call.respond(HttpStatusCode.BadRequest, "Invalid request body")
+        }
+
+        val accessToken = TokenStorage.getAccessToken(request.uid)
+        if (accessToken == null) {
+            return@put call.respond(HttpStatusCode.Unauthorized, "User not authenticated or token expired. Please log in again.")
+        }
+
+        try {
+            val response: HttpResponse = client.put("https://api.spotify.com/v1/me/player/pause") {
+                bearerAuth(accessToken)
+            }
+
+            if (response.status.isSuccess()) {
+                call.respond(HttpStatusCode.OK, "Playback paused.")
+            } else {
+                val errorBody = response.bodyAsText()
+                application.log.warn("Failed to pause playback for user ${request.uid}. Spotify responded with ${response.status}: $errorBody")
+                call.respond(response.status, "Error from Spotify: $errorBody")
+            }
+        } catch (e: Exception) {
+            application.log.error("Exception while pausing playback for user ${request.uid}", e)
+            call.respond(HttpStatusCode.InternalServerError, "An internal error occurred.")
+        }
+    }
+    
+    post("/spotify/next") {
+        val request = try {
+            call.receive<PlaybackRequest>()
+        } catch (e: Exception) {
+            return@post call.respond(HttpStatusCode.BadRequest, "Invalid request body")
+        }
+
+        val accessToken = TokenStorage.getAccessToken(request.uid)
+        if (accessToken == null) {
+            return@post call.respond(HttpStatusCode.Unauthorized, "User not authenticated or token expired. Please log in again.")
+        }
+
+        try {
+            val response: HttpResponse = client.post("https://api.spotify.com/v1/me/player/next") {
+                bearerAuth(accessToken)
+            }
+
+            if (response.status.isSuccess()) {
+                call.respond(HttpStatusCode.OK, "Skipped to next track.")
+            } else {
+                val errorBody = response.bodyAsText()
+                application.log.warn("Failed to skip to next for user ${request.uid}. Spotify responded with ${response.status}: $errorBody")
+                call.respond(response.status, "Error from Spotify: $errorBody")
+            }
+        } catch (e: Exception) {
+            application.log.error("Exception while skipping to next for user ${request.uid}", e)
+            call.respond(HttpStatusCode.InternalServerError, "An internal error occurred.")
+        }
+    }
+
+    post("/spotify/previous") {
+        val request = try {
+            call.receive<PlaybackRequest>()
+        } catch (e: Exception) {
+            return@post call.respond(HttpStatusCode.BadRequest, "Invalid request body")
+        }
+
+        val accessToken = TokenStorage.getAccessToken(request.uid)
+        if (accessToken == null) {
+            return@post call.respond(HttpStatusCode.Unauthorized, "User not authenticated or token expired. Please log in again.")
+        }
+
+        try {
+            val response: HttpResponse = client.post("https://api.spotify.com/v1/me/player/previous") {
+                bearerAuth(accessToken)
+            }
+
+            if (response.status.isSuccess()) {
+                call.respond(HttpStatusCode.OK, "Skipped to previous track.")
+            } else {
+                val errorBody = response.bodyAsText()
+                application.log.warn("Failed to skip to previous for user ${request.uid}. Spotify responded with ${response.status}: $errorBody")
+                call.respond(response.status, "Error from Spotify: $errorBody")
+            }
+        } catch (e: Exception) {
+            application.log.error("Exception while skipping to previous for user ${request.uid}", e)
             call.respond(HttpStatusCode.InternalServerError, "An internal error occurred.")
         }
     }
