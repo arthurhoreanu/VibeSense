@@ -91,3 +91,18 @@ export const play = () => playerAction('play', 'PUT');
 export const pause = () => playerAction('pause', 'PUT');
 export const next = () => playerAction('next', 'POST');
 export const previous = () => playerAction('previous', 'POST');
+
+export const addToQueue = async (trackUri: string) => {
+    const user = auth.currentUser;
+    if (!user) throw new Error('User not authenticated');
+
+    const res = await fetch(`${BACKEND_URL}/spotify/queue`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid: user.uid, track_uri: trackUri })
+    });
+
+    if (!res.ok) {
+        throw new Error(`Spotify addToQueue failed: ${res.statusText}`);
+    }
+};

@@ -1,6 +1,6 @@
 package com.example.vibesense.api.spotify
 
-import io.ktor.client.* 
+import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.client.request.forms.*
@@ -21,6 +21,33 @@ data class SpotifyStatusResponse(val isConnected: Boolean)
 @Serializable
 data class PlaybackRequest(val uid: String)
 
+private suspend fun addToQueue(uid: String, trackUri: String, client: HttpClient, application: Application): Pair<HttpStatusCode, String> {
+    val accessToken = TokenStorage.getAccessToken(uid)
+    if (accessToken == null) {
+        return HttpStatusCode.Unauthorized to "User not authenticated or token expired. Please log in again."
+    }
+
+    return try {
+        val response: HttpResponse = client.post("https://api.spotify.com/v1/me/player/queue") {
+            bearerAuth(accessToken)
+            url {
+                parameters.append("uri", trackUri)
+            }
+        }
+
+        if (response.status.isSuccess()) {
+            application.log.info("Successfully added track $trackUri to queue for user $uid.")
+            HttpStatusCode.OK to "Song added to queue successfully."
+        } else {
+            val errorBody = response.bodyAsText()
+            application.log.warn("Failed to add to queue for user $uid. Spotify responded with ${response.status}: $errorBody")
+            response.status to "Error from Spotify: $errorBody"
+        }
+    } catch (e: Exception) {
+        application.log.error("Exception while adding to queue for user $uid", e)
+        HttpStatusCode.InternalServerError to "An internal error occurred."
+    }
+}
 
 fun Routing.spotifyRouting(client: HttpClient) {
 
@@ -75,6 +102,13 @@ fun Routing.spotifyRouting(client: HttpClient) {
 
             TokenStorage.saveTokens(uid, tokenResponse.accessToken, tokenResponse.refreshToken)
             application.log.info("Successfully received and stored tokens for user $uid.")
+
+            // Add a song to the queue for testing purposes
+            val (status, message) = addToQueue(uid, "spotify:track:4cOdK2wGLETKBW3PvgPWqT", client, application)
+            if (status != HttpStatusCode.OK) {
+                application.log.warn("Could not add initial song to queue for user $uid: $message")
+                // Don't fail the whole login for this. Just log it.
+            }
 
             call.respondRedirect("vibesense://spotify-connected?status=success&uid=$uid")
 
@@ -150,31 +184,8 @@ fun Routing.spotifyRouting(client: HttpClient) {
             return@post call.respond(HttpStatusCode.BadRequest, "Invalid request body")
         }
 
-        val accessToken = TokenStorage.getAccessToken(request.uid)
-        if (accessToken == null) {
-            return@post call.respond(HttpStatusCode.Unauthorized, "User not authenticated or token expired. Please log in again.")
-        }
-
-        try {
-            val response: HttpResponse = client.post("https://api.spotify.com/v1/me/player/queue") {
-                bearerAuth(accessToken)
-                url {
-                    parameters.append("uri", request.trackUri)
-                }
-            }
-
-            if (response.status.isSuccess()) {
-                call.respond(HttpStatusCode.OK, "Song added to queue successfully.")
-            } else {
-                val errorBody = response.bodyAsText()
-                application.log.warn("Failed to add to queue for user ${request.uid}. Spotify responded with ${response.status}: $errorBody")
-                call.respond(response.status, "Error from Spotify: $errorBody")
-            }
-
-        } catch (e: Exception) {
-            application.log.error("Exception while adding to queue for user ${request.uid}", e)
-            call.respond(HttpStatusCode.InternalServerError, "An internal error occurred.")
-        }
+        val (status, message) = addToQueue(request.uid, request.trackUri, client, application)
+        call.respond(status, message)
     }
 
     put("/spotify/play") {
