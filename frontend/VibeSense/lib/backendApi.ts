@@ -31,6 +31,13 @@ export type NowPlayingResponse = {
     albumImageUrl: string | null;
 };
 
+export type HistoryTrack = {
+    trackName: string;
+    artistName: string;
+    playedAt: string;
+    albumImageUrl: string | null;
+}
+
 export async function fetchWeatherFromBackend(
   lat: number,
   lon: number
@@ -70,6 +77,14 @@ export async function fetchNowPlaying(uid: string): Promise<NowPlayingResponse> 
         throw new Error(`Now Playing API error: ${res.statusText}`);
     }
     return (await res.json()) as NowPlayingResponse;
+}
+
+export async function fetchHistory(uid: string, limit: number = 20): Promise<HistoryTrack[]> {
+    const res = await fetch(`${BACKEND_URL}/spotify/history?uid=${uid}&limit=${limit}`);
+    if (!res.ok) {
+        throw new Error(`History API error: ${res.statusText}`);
+    }
+    return (await res.json()) as HistoryTrack[];
 }
 
 const playerAction = async (action: 'play' | 'pause' | 'next' | 'previous', method: string, body?: any) => {
