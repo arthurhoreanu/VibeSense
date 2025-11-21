@@ -6,8 +6,8 @@ import { Settings as SettingsIcon, Lock, User, ChevronRight, LogOut, Smartphone 
 import { auth } from '../config/firebaseConfig';
 
 const otherSettings = [
-    { label: "Privacy & Security", icon: Lock },
-    { label: "About VibeSense", icon: Smartphone },
+    { id: 'privacy', label: "Privacy & Security", icon: Lock },
+    { id: 'about', label: "About VibeSense", icon: Smartphone },
 ];
 
 export function SettingsPage() {
@@ -19,6 +19,12 @@ export function SettingsPage() {
       router.replace('/login');
     } catch (error) {
       console.error('Failed to sign out: ', error);
+    }
+  };
+
+  const handleSettingPress = (id: string) => {
+    if (id === 'privacy') {
+      router.push('/privacy-security');
     }
   };
 
@@ -50,7 +56,7 @@ export function SettingsPage() {
         <Section title="Other">
             <View style={{gap: 12}}>
               {otherSettings.map((setting) => (
-                  <TouchableOpacity key={setting.label} style={styles.listCard}>
+                  <TouchableOpacity key={setting.id} style={styles.listCard} onPress={() => handleSettingPress(setting.id)}>
                       <setting.icon size={22} color="#A78BFA" />
                       <Text style={[styles.settingLabel, {flex: 1, marginLeft: 16}]}>{setting.label}</Text>
                       <ChevronRight size={22} color="#A1A1AA" />
