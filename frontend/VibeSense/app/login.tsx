@@ -19,6 +19,8 @@ import { auth } from '../config/firebaseConfig';
 const { width } = Dimensions.get('window');
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
+const NGROK_URL = 'https://lavera-uncountermandable-orbiculately.ngrok-free.dev';
+
 const LoginScreen: React.FC = () => {
   const router = useRouter();
   const [email, setEmail] = useState<string>('');
@@ -63,8 +65,30 @@ const LoginScreen: React.FC = () => {
     setLoading(true);
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      if (userCredential.user.emailVerified) {
-        router.replace('/(tabs)/home');
+      const user = userCredential.user;
+
+      if (user.emailVerified) {
+        // Check if user is already connected to Spotify
+        try {
+          const response = await fetch(`${NGROK_URL}/spotify/status?uid=${user.uid}`);
+          if (response.ok) {
+             const data = await response.json();
+             if (data.isConnected) {
+                router.replace('/(tabs)/home');
+             } else {
+                router.replace('/connect');
+             }
+          } else {
+             // If status check fails, assume not connected or safe fallback to connect
+             console.warn("Status check failed, redirecting to connect");
+             router.replace('/connect');
+          }
+        } catch (statusError) {
+           console.error("Error checking Spotify status:", statusError);
+           // Fallback to connect screen on network error
+           router.replace('/connect');
+        }
+
       } else {
         Alert.alert(
           'Verification Required',

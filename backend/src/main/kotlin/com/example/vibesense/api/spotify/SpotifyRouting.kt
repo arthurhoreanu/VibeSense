@@ -61,7 +61,8 @@ fun Routing.spotifyRouting(client: HttpClient) {
         val scopes = listOf(
             "user-modify-playback-state",
             "user-read-playback-state",
-            "user-read-currently-playing"
+            "user-read-currently-playing",
+            "user-read-recently-played"
         ).joinToString(" ")
 
         val authorizationUrl = "https://accounts.spotify.com/authorize?" +
@@ -170,6 +171,48 @@ fun Routing.spotifyRouting(client: HttpClient) {
             }
         } catch (e: Exception) {
             application.log.error("Exception while getting 'now playing' for user $uid", e)
+            call.respond(HttpStatusCode.InternalServerError, "An internal error occurred.")
+        }
+    }
+    
+    /**
+     * Get the user's listening history (recently played).
+     */
+    get("/spotify/history") {
+        val uid = call.parameters["uid"] ?: return@get call.respond(HttpStatusCode.BadRequest, "Missing user ID")
+        val limit = call.parameters["limit"]?.toIntOrNull() ?: 20
+
+        val accessToken = TokenStorage.getAccessToken(uid)
+        if (accessToken == null) {
+            return@get call.respond(HttpStatusCode.Unauthorized, "User not authenticated or token expired.")
+        }
+
+        try {
+            val response: HttpResponse = client.get("https://api.spotify.com/v1/me/player/recently-played") {
+                bearerAuth(accessToken)
+                url {
+                    parameters.append("limit", limit.toString())
+                }
+            }
+
+            if (response.status.isSuccess()) {
+                val historyResponse = response.body<SpotifyHistoryResponse>()
+                val historyTracks = historyResponse.items.map { item ->
+                    HistoryTrack(
+                        trackName = item.track.name,
+                        artistName = item.track.artists.joinToString { it.name },
+                        playedAt = item.playedAt,
+                        albumImageUrl = item.track.album.images.firstOrNull()?.url
+                    )
+                }
+                call.respond(historyTracks)
+            } else {
+                val errorBody = response.bodyAsText()
+                application.log.warn("Could not get history for user $uid. Spotify responded with ${response.status}: $errorBody")
+                call.respond(response.status, "Error from Spotify: $errorBody")
+            }
+        } catch (e: Exception) {
+            application.log.error("Exception while getting history for user $uid", e)
             call.respond(HttpStatusCode.InternalServerError, "An internal error occurred.")
         }
     }

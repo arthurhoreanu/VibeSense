@@ -6,7 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Slider } from './ui/slider';
 import useNowPlaying from '../hooks/useNowPlaying';
 import { useMood } from '../context/MoodContext';
-import { play, pause, next, previous, seek } from '../lib/backendApi';
+import { play, pause, next, previous } from '../lib/backendApi';
 
 const { width } = Dimensions.get('window');
 
@@ -39,7 +39,6 @@ export function NowPlayingVariant() {
 
   const isPlaying = nowPlaying?.isPlaying ?? false;
   const [optimisticIsPlaying, setOptimisticIsPlaying] = useState(isPlaying);
-  const [optimisticProgress, setOptimisticProgress] = useState(nowPlaying?.progressMs ?? 0);
 
   const rotation = useSharedValue(0);
 
@@ -47,11 +46,6 @@ export function NowPlayingVariant() {
     setOptimisticIsPlaying(isPlaying);
   }, [isPlaying]);
 
-  useEffect(() => {
-    if (nowPlaying?.progressMs) {
-      setOptimisticProgress(nowPlaying.progressMs);
-    }
-  }, [nowPlaying?.progressMs]);
 
   useEffect(() => {
     if (optimisticIsPlaying) {
@@ -87,12 +81,6 @@ export function NowPlayingVariant() {
     setTimeout(refreshNowPlaying, 1000); // Longer delay for track change
   };
 
-  const handleSeek = async (value: number) => {
-    setOptimisticProgress(value);
-    await seek(value);
-    setTimeout(refreshNowPlaying, 1000);
-  };
-
   if (loading) {
       return (
           <LinearGradient colors={['#000', '#11052C', '#000']} style={styles.container}>
@@ -112,6 +100,7 @@ export function NowPlayingVariant() {
     )
   }
 
+  const progress = nowPlaying.progressMs ?? 0;
   const duration = nowPlaying.durationMs || 1;
 
   return (
@@ -135,14 +124,14 @@ export function NowPlayingVariant() {
       </View>
 
       <View style={styles.progressContainer}>
-        <Slider
-          value={optimisticProgress}
-          max={duration}
-          onValueChange={(value) => setOptimisticProgress(value[0])}
-          onSlidingComplete={(value) => handleSeek(value[0])}
-        />
+        <View pointerEvents="none">
+            <Slider
+              value={progress}
+              max={duration}
+            />
+        </View>
         <View style={styles.timeContainer}>
-          <Text style={styles.timeText}>{Math.floor(optimisticProgress / 1000 / 60)}:{(Math.floor(optimisticProgress / 1000) % 60).toString().padStart(2, '0')}</Text>
+          <Text style={styles.timeText}>{Math.floor(progress / 1000 / 60)}:{(Math.floor(progress / 1000) % 60).toString().padStart(2, '0')}</Text>
           <Text style={styles.timeText}>{Math.floor(duration / 1000 / 60)}:{(Math.floor(duration / 1000) % 60).toString().padStart(2, '0')}</Text>
         </View>
       </View>

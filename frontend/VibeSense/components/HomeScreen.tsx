@@ -1,22 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image, AppState } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as WebBrowser from 'expo-web-browser';
 import { auth } from '@/config/firebaseConfig';
-import * as Linking from 'expo-linking';
-import { useRouter } from 'expo-router';
-import { Play, CheckCircle2, ChevronRight, History, Home, Zap } from 'lucide-react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { Play, ChevronRight, History, Home } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import useNowPlaying from '../hooks/useNowPlaying';
 import { useMood } from '../context/MoodContext';
-
-const NGROK_URL = 'https://lavera-uncountermandable-orbiculately.ngrok-free.dev';
-
-const recentTracks = [
-    { time: '2h ago', title: 'Espresso', artist: 'Sabrina Carpenter', colors: ['#3b82f6', '#06b6d4'] as const },
-    { time: '5h ago', title: 'Good Luck, Babe!', artist: 'Chappell Roan', colors: ['#a855f7', '#ec4899'] as const },
-    { time: 'Yesterday', title: 'Levitating', artist: 'Dua Lipa', colors: ['#4f46e5', '#7e22ce'] as const },
-];
+import { fetchHistory, HistoryTrack } from '@/lib/backendApi';
+import { formatTimeAgo } from '@/lib/utils';
 
 const Progress = ({ value }: { value: number }) => (
     <View style={styles.progressContainer}>
@@ -27,77 +19,56 @@ const Progress = ({ value }: { value: number }) => (
 export function HomeScreen() {
     const router = useRouter();
     const { mood, loading: moodLoading, error: moodError } = useMood();
-    const [isSpotifyConnected, setIsSpotifyConnected] = useState(false);
     const { nowPlaying } = useNowPlaying();
-  
+    const [recentTracks, setRecentTracks] = useState<HistoryTrack[]>([]);
+    const [historyLoading, setHistoryLoading] = useState(false);
+    const [lastTrackName, setLastTrackName] = useState<string | null>(null);
+
+    const loadHistory = async (uid: string) => {
+        try {
+            if (recentTracks.length === 0) {
+                setHistoryLoading(true);
+            }
+            const tracks = await fetchHistory(uid, 3);
+            setRecentTracks(tracks);
+        } catch (e) {
+            console.error("Failed to load history", e);
+        } finally {
+            setHistoryLoading(false);
+        }
+    };
+
+    // Refresh history when the screen comes into focus
+    useFocusEffect(
+        useCallback(() => {
+            if (auth.currentUser) {
+                loadHistory(auth.currentUser.uid);
+            }
+        }, [])
+    );
+
+    // Refresh when app comes to foreground
     useEffect(() => {
-        const unsubscribeFromAuth = auth.onAuthStateChanged(async (user) => {
-            if (user) {
-                try {
-                    const response = await fetch(`${NGROK_URL}/spotify/status?uid=${user.uid}`);
-                    if (response.ok) {
-                        const data = await response.json();
-                        setIsSpotifyConnected(data.isConnected);
-                    }
-                } catch (error) {
-                    console.error("Failed to check Spotify status:", error);
-                    setIsSpotifyConnected(false);
-                }
-            } else {
-                setIsSpotifyConnected(false);
+        const subscription = AppState.addEventListener('change', (nextAppState) => {
+            if (nextAppState === 'active' && auth.currentUser) {
+                loadHistory(auth.currentUser.uid);
             }
         });
-
-        return unsubscribeFromAuth;
-    }, []);
-
-    useEffect(() => {
-        const handleDeepLink = (event: { url: string }) => {
-            const { url } = event;
-            if (url && url.startsWith('vibesense://spotify-connected')) {
-                WebBrowser.dismissBrowser();
-
-                const { queryParams } = Linking.parse(url);
-                if (queryParams?.status === 'success') {
-                    Alert.alert('Success!', 'Your Spotify account has been connected.');
-                    setIsSpotifyConnected(true);
-                } else if (queryParams?.status === 'error') {
-                    Alert.alert(
-                        'Connection Failed',
-                        `Something went wrong: ${queryParams.message || 'Please try again.'}`
-                    );
-                }
-            }
-        };
-
-        const subscription = Linking.addEventListener('url', handleDeepLink);
-        Linking.getInitialURL().then(url => url && handleDeepLink({ url }));
 
         return () => {
             subscription.remove();
         };
     }, []);
 
-    const handleSpotifyConnect = async () => {
-        const user = auth.currentUser;
-        if (!user) {
-            Alert.alert("Error", "You must be logged in to connect to Spotify.");
-            return;
+    // Refresh history when the track changes
+    useEffect(() => {
+        if (nowPlaying?.trackName !== lastTrackName) {
+            if (auth.currentUser) {
+                loadHistory(auth.currentUser.uid);
+            }
+            setLastTrackName(nowPlaying?.trackName ?? null);
         }
-
-        const uid = user.uid;
-        const backendUrl = `${NGROK_URL}/spotify/login?uid=${uid}`;
-
-        try {
-            await WebBrowser.openBrowserAsync(backendUrl);
-        } catch (error) {
-            Alert.alert(
-                "Error",
-                `Could not open browser. Make sure your ngrok tunnel is active.`
-            );
-            console.error(error);
-        }
-    };
+    }, [nowPlaying?.trackName, lastTrackName]);
 
     return (
         <LinearGradient
@@ -157,24 +128,6 @@ export function HomeScreen() {
                         <Text style={styles.statLabel}>Today</Text>
                     </View>
                 </View>
-                <View style={styles.sectionContainer}>
-                    {isSpotifyConnected ? (
-                        <View style={[styles.spotifyButtonGradient, styles.connectedButton]}>
-                            <CheckCircle2 color="white" size={20} />
-                            <Text style={styles.spotifyButtonText}>You are connected to Spotify</Text>
-                        </View>
-                    ) : (
-                        <TouchableOpacity onPress={handleSpotifyConnect} style={styles.spotifyButton}>
-                            <LinearGradient
-                                colors={['#1DB954', '#1ED760']}
-                                style={styles.spotifyButtonGradient}
-                            >
-                                <Zap color="white" size={20} />
-                                <Text style={styles.spotifyButtonText}>Connect to Spotify</Text>
-                            </LinearGradient>
-                        </TouchableOpacity>
-                    )}
-                </View>
 
                 {nowPlaying?.isPlaying && (
                 <TouchableOpacity onPress={() => router.push('/playing')} style={styles.sectionContainer}>
@@ -206,24 +159,28 @@ export function HomeScreen() {
                 <View style={styles.sectionContainer}>
                     <View style={styles.sectionHeader}>
                         <Text style={styles.sectionTitle}>Recent Tracks</Text>
-                        <History width={20} height={20} color="#c084fc" />
+                        <TouchableOpacity onPress={() => router.push('/history')}>
+                             <History width={20} height={20} color="#c084fc" />
+                        </TouchableOpacity>
                     </View>
+                    {historyLoading && recentTracks.length === 0 ? (
+                        <Text style={{color: 'gray'}}>Loading history...</Text>
+                    ) : (
                     <View style={{ gap: 8 }}>
                         {recentTracks.map((track, i) => (
                             <View key={i} style={styles.trackItem}>
-                                <LinearGradient colors={track.colors} style={styles.trackArt}>
-                                    <Play width={16} height={16} color="white" />
-                                </LinearGradient>
+                                <Image source={{ uri: track.albumImageUrl || undefined }} style={styles.trackArt} />
                                 <View style={{ flex: 1 }}>
-                                    <Text style={styles.trackTitle}>{track.title}</Text>
-                                    <Text style={styles.trackArtist}>{track.artist}</Text>
+                                    <Text style={styles.trackTitle}>{track.trackName}</Text>
+                                    <Text style={styles.trackArtist}>{track.artistName}</Text>
                                 </View>
-                                <Text style={styles.trackTime}>{track.time}</Text>
+                                <Text style={styles.trackTime}>{formatTimeAgo(track.playedAt)}</Text>
                             </View>
                         ))}
                     </View>
+                    )}
 
-                    <TouchableOpacity style={styles.historyButton}>
+                    <TouchableOpacity style={styles.historyButton} onPress={() => router.push('/history')}>
                         <Text style={styles.historyButtonText}>Show Entire History</Text>
                         <ChevronRight width={16} height={16} color="white" />
                     </TouchableOpacity>
@@ -346,28 +303,4 @@ const styles = StyleSheet.create({
         marginTop: 12,
     },
     historyButtonText: { color: 'white', fontSize: 14, fontWeight: '500' },
-    spotifyButton: {
-        borderRadius: 16,
-        shadowColor: '#1DB954',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 10,
-    },
-    spotifyButtonGradient: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 12,
-        paddingVertical: 16,
-        borderRadius: 16,
-    },
-    spotifyButtonText: {
-        color: 'white',
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
-    connectedButton: {
-        backgroundColor: '#1aa34a',
-    },
 });

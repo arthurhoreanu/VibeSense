@@ -67,3 +67,22 @@ data class SpotifyImage(
     val height: Int,
     val width: Int
 )
+
+@Serializable
+data class SpotifyHistoryResponse(
+    val items: List<SpotifyHistoryItem>
+)
+
+@Serializable
+data class SpotifyHistoryItem(
+    val track: SpotifyTrack,
+    @SerialName("played_at") val playedAt: String
+)
+
+@Serializable
+data class HistoryTrack(
+    val trackName: String,
+    val artistName: String,
+    val playedAt: String, // ISO string
+    val albumImageUrl: String?
+)
