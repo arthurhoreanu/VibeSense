@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Image } from 'react-native';
-import { Share2, MoreVertical, SkipBack, SkipForward, Play, Pause } from 'lucide-react-native';
+import { SkipBack, SkipForward, Play, Pause } from 'lucide-react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withRepeat, withSequence, Easing } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Slider } from './ui/slider';
@@ -117,16 +117,10 @@ export function NowPlayingVariant() {
   return (
     <LinearGradient colors={['#000', '#11052C', '#000']} style={styles.container}>
       <View style={styles.topBar}>
-        <TouchableOpacity style={styles.iconButton}>
-          <MoreVertical color="white" size={22} />
-        </TouchableOpacity>
         <View>
           <Text style={styles.topBarSubtitle}>CURRENT MOOD</Text>
           <Text style={styles.topBarTitle}>{mood.type}</Text>
         </View>
-        <TouchableOpacity style={styles.iconButton}>
-          <Share2 color="white" size={22} />
-        </TouchableOpacity>
       </View>
 
       <View style={styles.albumArtContainer}>
@@ -191,17 +185,9 @@ const styles = StyleSheet.create({
   },
   topBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 40,
-  },
-  iconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 40,
   },
   topBarSubtitle: {
     color: '#aaa',

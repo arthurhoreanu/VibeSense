@@ -1,16 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Settings as SettingsIcon, Activity, Mic, Sun, Cloud, Sliders, Lock, User, ChevronRight, LogOut, Smartphone } from 'lucide-react-native';
-import { Switch } from './ui/switch';
-
-const sensorSettings = [
-  { id: 'accelerometer', label: 'Movement Detection', description: 'Detect activity', icon: Activity, enabled: true, color: ['#06B6D4', '#3B82F6'] as const },
-  { id: 'microphone', label: 'Ambient Noise', description: 'Analyze sound', icon: Mic, enabled: true, color: ['#EC4899', '#F43F5E'] as const },
-  { id: 'brightness', label: 'Brightness Sensor', description: 'Detect light level', icon: Sun, enabled: true, color: ['#F59E0B', '#F97316'] as const },
-  { id: 'weather', label: 'Weather Data', description: 'Get weather info', icon: Cloud, enabled: false, color: ['#6366F1', '#8B5CF6'] as const },
-];
+import { Settings as SettingsIcon, Lock, User, ChevronRight, LogOut, Smartphone } from 'lucide-react-native';
+import { auth } from '../config/firebaseConfig';
 
 const otherSettings = [
     { label: "Privacy & Security", icon: Lock },
@@ -19,10 +12,14 @@ const otherSettings = [
 
 export function SettingsPage() {
   const router = useRouter();
-  const [sensors, setSensors] = useState<Record<string, boolean>>(sensorSettings.reduce((acc, s) => ({ ...acc, [s.id]: s.enabled }), {}));
 
-  const handleSignOut = () => {
-    router.replace('/login');
+  const handleSignOut = async () => {
+    try {
+      await auth.signOut();
+      router.replace('/login');
+    } catch (error) {
+      console.error('Failed to sign out: ', error);
+    }
   };
 
   return (
@@ -50,23 +47,6 @@ export function SettingsPage() {
             </View>
         </TouchableOpacity>
 
-        <Section title="Sensor Settings" icon={Sliders}>
-          <View style={{gap: 12}}>
-            {sensorSettings.map(sensor => (
-              <View key={sensor.id} style={styles.listCard}>
-                  <LinearGradient colors={sensor.color} style={styles.settingIconContainer}>
-                      <sensor.icon size={22} color="white" />
-                  </LinearGradient>
-                  <View style={styles.settingTextContainer}>
-                      <Text style={styles.settingLabel}>{sensor.label}</Text>
-                      <Text style={styles.settingDescription}>{sensor.description}</Text>
-                  </View>
-                  <Switch value={sensors[sensor.id]} onValueChange={value => setSensors(s => ({ ...s, [sensor.id]: value }))} />
-              </View>
-            ))}
-          </View>
-        </Section>
-                
         <Section title="Other">
             <View style={{gap: 12}}>
               {otherSettings.map((setting) => (
@@ -110,7 +90,7 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   sectionTitle: { color: 'white', fontSize: 20, fontWeight: '600' },
   listCard: {
-    backgroundColor: 'rgba(30, 27, 75, 0.5)',
+    backgroundColor: 'rgba(49, 46, 129, 0.6)',
     borderRadius: 16,
     paddingVertical: 12,
     paddingHorizontal: 16,
@@ -118,10 +98,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
   },
-  settingIconContainer: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-  settingTextContainer: { flex: 1, marginLeft: 16 },
   settingLabel: { color: 'white', fontSize: 16 },
-  settingDescription: { color: '#A1A1AA', fontSize: 12, marginTop: 4 },
   logoutButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: 'rgba(239, 68, 68, 0.15)', marginHorizontal: 20, borderRadius: 16, paddingVertical: 16, marginTop: 24 },
   logoutButtonText: { color: '#F43F5E', fontSize: 16, fontWeight: 'bold' },
 });
