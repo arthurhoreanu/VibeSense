@@ -129,14 +129,20 @@ export function HomeScreen() {
                     </View>
                 </View>
 
-                {nowPlaying?.isPlaying && (
+                {nowPlaying?.trackName && (
                 <TouchableOpacity onPress={() => router.push('/playing')} style={styles.sectionContainer}>
                     <View style={styles.sectionHeader}>
                         <Text style={styles.sectionTitle}>Now Playing</Text>
-                        <View style={styles.liveBadge}>
-                            <Play width={12} height={12} color="#4ade80" fill="#4ade80" style={{ marginRight: 4 }}/>
-                            <Text style={styles.liveBadgeText}>Live</Text>
-                        </View>
+                        {nowPlaying.isPlaying ? (
+                            <View style={styles.liveBadge}>
+                                <Play width={12} height={12} color="#4ade80" fill="#4ade80" style={{ marginRight: 4 }}/>
+                                <Text style={styles.liveBadgeText}>Live</Text>
+                            </View>
+                        ) : (
+                            <View style={[styles.liveBadge, { backgroundColor: 'rgba(148, 163, 184, 0.2)' }]}>
+                                <Text style={[styles.liveBadgeText, { color: '#94a3b8' }]}>Paused</Text>
+                            </View>
+                        )}
                     </View>
 
                     <LinearGradient

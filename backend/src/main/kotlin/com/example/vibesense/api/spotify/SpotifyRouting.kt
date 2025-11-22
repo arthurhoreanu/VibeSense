@@ -147,27 +147,56 @@ fun Routing.spotifyRouting(client: HttpClient) {
                 bearerAuth(accessToken)
             }
 
-            if (response.status == HttpStatusCode.NoContent) {
-                return@get call.respond(NowPlayingResponse(isPlaying = false, null, null, null, null, null, null))
-            }
+            var nowPlaying: NowPlayingResponse? = null
 
-            if (response.status.isSuccess()) {
+            if (response.status.isSuccess() && response.status != HttpStatusCode.NoContent) {
                 val spotifyResponse = response.body<SpotifyCurrentlyPlaying>()
                 val track = spotifyResponse.item
-                val nowPlaying = NowPlayingResponse(
-                    isPlaying = spotifyResponse.isPlaying,
-                    trackName = track?.name,
-                    artistName = track?.artists?.joinToString { it.name },
-                    albumName = track?.album?.name,
-                    durationMs = track?.durationMs,
-                    progressMs = spotifyResponse.progressMs,
-                    albumImageUrl = track?.album?.images?.firstOrNull()?.url
-                )
+                
+                if (track != null) {
+                    nowPlaying = NowPlayingResponse(
+                        isPlaying = spotifyResponse.isPlaying,
+                        trackName = track.name,
+                        artistName = track.artists.joinToString { it.name },
+                        albumName = track.album.name,
+                        durationMs = track.durationMs,
+                        progressMs = spotifyResponse.progressMs,
+                        albumImageUrl = track.album.images.firstOrNull()?.url
+                    )
+                }
+            }
+
+            // Fallback to recently played if nothing is currently playing
+            if (nowPlaying == null) {
+                val historyResponse: HttpResponse = client.get("https://api.spotify.com/v1/me/player/recently-played") {
+                    bearerAuth(accessToken)
+                    url {
+                        parameters.append("limit", "1")
+                    }
+                }
+
+                if (historyResponse.status.isSuccess()) {
+                    val history = historyResponse.body<SpotifyHistoryResponse>()
+                    val lastItem = history.items.firstOrNull()
+                    if (lastItem != null) {
+                        val track = lastItem.track
+                        nowPlaying = NowPlayingResponse(
+                            isPlaying = false,
+                            trackName = track.name,
+                            artistName = track.artists.joinToString { it.name },
+                            albumName = track.album.name,
+                            durationMs = track.durationMs,
+                            progressMs = 0,
+                            albumImageUrl = track.album.images.firstOrNull()?.url
+                        )
+                    }
+                }
+            }
+
+            if (nowPlaying != null) {
                 call.respond(nowPlaying)
             } else {
-                val errorBody = response.bodyAsText()
-                application.log.warn("Could not get 'now playing' for user $uid. Spotify responded with ${response.status}: $errorBody")
-                call.respond(response.status, "Error from Spotify: $errorBody")
+                call.respond(NowPlayingResponse(isPlaying = false, null, null, null, null, null, null))
             }
         } catch (e: Exception) {
             application.log.error("Exception while getting 'now playing' for user $uid", e)
