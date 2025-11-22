@@ -62,13 +62,27 @@ export function NowPlayingVariant() {
   });
 
   const handlePlayPause = async () => {
-    setOptimisticIsPlaying(current => !current);
-    if (isPlaying) {
-      await pause();
-    } else {
-      await play();
+    // Store previous state to revert if needed
+    const previousState = optimisticIsPlaying;
+    
+    // Optimistically update UI immediately
+    setOptimisticIsPlaying(!previousState);
+    
+    try {
+        if (previousState) {
+          // If it was playing, we are pausing
+          await pause();
+        } else {
+          // If it was paused, we are playing
+          await play();
+        }
+        // Refresh data after a short delay to sync with Spotify
+        setTimeout(refreshNowPlaying, 500);
+    } catch (err) {
+        console.error("Failed to toggle playback:", err);
+        // Revert optimistic update on error
+        setOptimisticIsPlaying(previousState);
     }
-    setTimeout(refreshNowPlaying, 500);
   };
 
   const handleNext = async () => {
@@ -89,7 +103,8 @@ export function NowPlayingVariant() {
       )
   }
 
-  if (error || !nowPlaying || !nowPlaying.isPlaying) {
+  // We check if we have track info. Even if not playing, we show the player if we have a track (paused state).
+  if (error || !nowPlaying || !nowPlaying.trackName) {
     return (
       <LinearGradient colors={['#000', '#11052C', '#000']} style={styles.container}>
           <View style={styles.centeredMessage}>
