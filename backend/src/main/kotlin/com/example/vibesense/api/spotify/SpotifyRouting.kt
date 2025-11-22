@@ -1,5 +1,7 @@
 package com.example.vibesense.api.spotify
 
+import com.example.vibesense.api.engine.MoodContext
+import com.example.vibesense.api.engine.MoodEngine
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
@@ -20,6 +22,9 @@ data class SpotifyStatusResponse(val isConnected: Boolean)
 
 @Serializable
 data class PlaybackRequest(val uid: String)
+
+@Serializable
+data class MoodGenerationRequest(val uid: String, val context: MoodContext)
 
 private suspend fun addToQueue(uid: String, trackUri: String, client: HttpClient, application: Application): Pair<HttpStatusCode, String> {
     val accessToken = TokenStorage.getAccessToken(uid)
@@ -49,7 +54,7 @@ private suspend fun addToQueue(uid: String, trackUri: String, client: HttpClient
     }
 }
 
-fun Routing.spotifyRouting(client: HttpClient) {
+fun Routing.spotifyRouting(client: HttpClient, moodEngine: MoodEngine) {
 
     /**
      * Step 1: Redirect user to Spotify's authorization page.
@@ -62,7 +67,9 @@ fun Routing.spotifyRouting(client: HttpClient) {
             "user-modify-playback-state",
             "user-read-playback-state",
             "user-read-currently-playing",
-            "user-read-recently-played"
+            "user-read-recently-played",
+            "playlist-read-private",
+            "playlist-read-collaborative"
         ).joinToString(" ")
 
         val authorizationUrl = "https://accounts.spotify.com/authorize?" +
@@ -108,7 +115,6 @@ fun Routing.spotifyRouting(client: HttpClient) {
             val (status, message) = addToQueue(uid, "spotify:track:4cOdK2wGLETKBW3PvgPWqT", client, application)
             if (status != HttpStatusCode.OK) {
                 application.log.warn("Could not add initial song to queue for user $uid: $message")
-                // Don't fail the whole login for this. Just log it.
             }
 
             call.respondRedirect("vibesense://spotify-connected?status=success&uid=$uid")
@@ -120,20 +126,12 @@ fun Routing.spotifyRouting(client: HttpClient) {
         }
     }
 
-    /**
-     * Check if a user has valid Spotify tokens.
-     */
     get("/spotify/status") {
         val uid = call.parameters["uid"] ?: return@get call.respond(HttpStatusCode.BadRequest, "Missing user ID")
-
         val hasToken = TokenStorage.getAccessToken(uid) != null
-
         call.respond(SpotifyStatusResponse(isConnected = hasToken))
     }
 
-    /**
-     * Get the user's currently playing track.
-     */
     get("/spotify/now-playing") {
         val uid = call.parameters["uid"] ?: return@get call.respond(HttpStatusCode.BadRequest, "Missing user ID")
 
@@ -166,7 +164,6 @@ fun Routing.spotifyRouting(client: HttpClient) {
                 }
             }
 
-            // Fallback to recently played if nothing is currently playing
             if (nowPlaying == null) {
                 val historyResponse: HttpResponse = client.get("https://api.spotify.com/v1/me/player/recently-played") {
                     bearerAuth(accessToken)
@@ -204,9 +201,6 @@ fun Routing.spotifyRouting(client: HttpClient) {
         }
     }
     
-    /**
-     * Get the user's listening history (recently played).
-     */
     get("/spotify/history") {
         val uid = call.parameters["uid"] ?: return@get call.respond(HttpStatusCode.BadRequest, "Missing user ID")
         val limit = call.parameters["limit"]?.toIntOrNull() ?: 20
@@ -246,9 +240,6 @@ fun Routing.spotifyRouting(client: HttpClient) {
         }
     }
 
-    /**
-     * Add a song to the user's Spotify queue.
-     */
     post("/spotify/queue") {
         val request = try {
             call.receive<QueueRequest>()
@@ -258,6 +249,22 @@ fun Routing.spotifyRouting(client: HttpClient) {
 
         val (status, message) = addToQueue(request.uid, request.trackUri, client, application)
         call.respond(status, message)
+    }
+    
+    post("/spotify/generate-mood") {
+        val request = try {
+            call.receive<MoodGenerationRequest>()
+        } catch (e: Exception) {
+            return@post call.respond(HttpStatusCode.BadRequest, "Invalid request body: ${e.localizedMessage}")
+        }
+        
+        val trackUri = moodEngine.generateAndQueueTrack(request.uid, request.context)
+        
+        if (trackUri != null) {
+            call.respond(HttpStatusCode.OK, "Track $trackUri generated and added to queue.")
+        } else {
+            call.respond(HttpStatusCode.ServiceUnavailable, "Could not generate a suitable track for this mood.")
+        }
     }
 
     put("/spotify/play") {

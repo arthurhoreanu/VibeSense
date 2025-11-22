@@ -1,5 +1,7 @@
 package com.example.vibesense.api.ambient
 
+import com.example.vibesense.api.engine.MoodContext
+import com.example.vibesense.api.engine.MoodEngine
 import com.example.vibesense.api.weather.WeatherService
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.*
@@ -7,15 +9,17 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 
-fun Routing.contextRouting(weatherService: WeatherService) {
+fun Routing.contextRouting(weatherService: WeatherService, moodEngine: MoodEngine) {
 
     post("/context") {
         try {
             val req = call.receive<ContextRequest>()
 
+            // 1. Get Weather
             val weather = weatherService.getWeatherData(req.lat, req.lon)
             val condition = weatherService.interpretWeatherCode(weather.current.weatherCode)
 
+            // 2. Determine Time of Day
             val partOfDay = when (req.hour) {
                 in 6..11 -> "morning"
                 in 12..17 -> "day"
@@ -24,10 +28,21 @@ fun Routing.contextRouting(weatherService: WeatherService) {
             }
 
             val moodTag = "${partOfDay}_${condition}_${req.activity}"
+            
+            // 3. Construct MoodContext for the Engine
+            val moodContext = MoodContext(
+                timeOfDay = partOfDay,
+                weatherCondition = condition,
+                activityType = req.activity
+            )
+            
+            // 4. Trigger Mood Engine to Add Song
+            val addedTrackUri = moodEngine.generateAndQueueTrack(req.uid, moodContext)
 
             val resp = ContextResponse(
                 moodTag = moodTag,
-                message = "Using $condition, activity=${req.activity}, hour=${req.hour}"
+                message = "Processed $condition, activity=${req.activity}. Track added: ${addedTrackUri ?: "None"}",
+                trackAdded = addedTrackUri
             )
 
             call.respond(resp)
