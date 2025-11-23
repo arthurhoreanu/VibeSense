@@ -1,9 +1,10 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Settings as SettingsIcon, Lock, User, ChevronRight, LogOut, Smartphone } from 'lucide-react-native';
-import { auth } from '../config/firebaseConfig';
+import { auth, db } from '../config/firebaseConfig';
+import { doc, getDoc } from 'firebase/firestore';
 
 const otherSettings = [
     { id: 'privacy', label: "Privacy & Security", icon: Lock },
@@ -12,6 +13,27 @@ const otherSettings = [
 
 export function SettingsPage() {
   const router = useRouter();
+  const [username, setUsername] = useState('Loading...');
+  const [photoURL, setPhotoURL] = useState<string | null>(null);
+  const user = auth.currentUser;
+
+  useFocusEffect(
+    useCallback(() => {
+      if (user) {
+        const userRef = doc(db, 'users', user.uid);
+        getDoc(userRef).then(docSnap => {
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            setUsername(data.username || 'VibeSense User');
+            setPhotoURL(data.photoURL || null);
+          } else {
+            setUsername('VibeSense User');
+            setPhotoURL(null);
+          }
+        });
+      }
+    }, [user])
+  );
 
   const handleSignOut = async () => {
     try {
@@ -25,6 +47,8 @@ export function SettingsPage() {
   const handleSettingPress = (id: string) => {
     if (id === 'privacy') {
       router.push('/privacy-security');
+    } else if (id === 'profile') {
+      router.push('/profile');
     }
   };
 
@@ -39,14 +63,18 @@ export function SettingsPage() {
           <Text style={styles.headerTitle}>Settings</Text>
         </View>
 
-        <TouchableOpacity style={styles.profileCard}>
+        <TouchableOpacity style={styles.profileCard} onPress={() => handleSettingPress('profile')}>
             <LinearGradient colors={['#8B5CF6', '#EC4899']} style={StyleSheet.absoluteFill} />
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16}}>
                 <View style={styles.profileAvatar}>
-                    <User size={32} color="white" />
+                    {photoURL ? (
+                        <Image source={{ uri: photoURL }} style={styles.avatarImage} />
+                    ) : (
+                        <User size={32} color="white" />
+                    )}
                 </View>
                 <View style={{ flex: 1 }}>
-                    <Text style={{ color: 'white', fontSize: 20, fontWeight: 'bold' }}>Alex Rivers</Text>
+                    <Text style={{ color: 'white', fontSize: 20, fontWeight: 'bold' }}>{username}</Text>
                     <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 14 }}>Level 8 • 1,247 points</Text>
                 </View>
                 <ChevronRight size={24} color="rgba(255,255,255,0.7)" />
@@ -91,7 +119,8 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 20, marginBottom: 24 },
   headerTitle: { color: 'white', fontSize: 34, fontWeight: 'bold' },
   profileCard: { borderRadius: 24, padding: 20, marginBottom: 24, marginHorizontal: 20, overflow: 'hidden' },
-  profileAvatar: { width: 64, height: 64, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
+  profileAvatar: { width: 64, height: 64, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  avatarImage: { width: '100%', height: '100%' },
   sectionContainer: { marginBottom: 24, paddingHorizontal: 20 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   sectionTitle: { color: 'white', fontSize: 20, fontWeight: '600' },
