@@ -9,11 +9,10 @@ import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.server.application.*
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
+import java.util.concurrent.ConcurrentHashMap
 
 // --- INPUT MODELS (Sensor Data) ---
 
@@ -36,7 +35,17 @@ data class DatabaseKeys(
 
 class MoodEngine(private val client: HttpClient, private val application: Application) {
 
+    private val lastRequestMap = ConcurrentHashMap<String, Long>()
+
     suspend fun generateAndQueueTrack(uid: String, context: MoodContext): String? {
+        val now = System.currentTimeMillis()
+        val lastTime = lastRequestMap[uid] ?: 0L
+        if (now - lastTime < 2000) {
+            application.log.info("MoodEngine: [DEBOUNCE] Request ignored for user $uid (too soon).")
+            return null
+        }
+        lastRequestMap[uid] = now
+
         val trackInfo = generateTrackUri(uid, context)
 
         if (trackInfo != null) {

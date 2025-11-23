@@ -47,7 +47,8 @@ data class SpotifyTrack(
     val name: String,
     @SerialName("duration_ms") val durationMs: Int,
     val album: SpotifyAlbum,
-    val artists: List<SpotifyArtist>
+    val artists: List<SpotifyArtist>,
+    val uri: String? = null
 )
 
 @Serializable

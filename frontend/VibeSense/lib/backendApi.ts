@@ -32,6 +32,17 @@ export type NowPlayingResponse = {
     albumImageUrl: string | null;
 };
 
+export type SpotifyTrack = {
+    name: string;
+    duration_ms: number;
+    album: {
+        name: string;
+        images: { url: string; height: number; width: number }[];
+    };
+    artists: { name: string }[];
+    uri?: string;
+}
+
 export type HistoryTrack = {
     trackName: string;
     artistName: string;
@@ -85,6 +96,19 @@ export async function fetchNowPlaying(uid: string): Promise<NowPlayingResponse> 
         throw new Error(`Now Playing API error: ${res.statusText}`);
     }
     return (await res.json()) as NowPlayingResponse;
+}
+
+export async function generateMoodTrack(uid: string, context: any): Promise<string> {
+    const res = await fetch(`${BACKEND_URL}/spotify/generate-mood`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uid, context }),
+    });
+
+    if (!res.ok) {
+        throw new Error(`Generate Mood API error: ${res.statusText}`);
+    }
+    return await res.text();
 }
 
 export async function fetchHistory(uid: string, limit: number = 20): Promise<HistoryTrack[]> {
