@@ -109,58 +109,125 @@ class MoodEngine(private val client: HttpClient, private val application: Applic
 
         return when (a.lowercase()) {
             "running" -> {
-                logLogic("Activity is RUNNING. Priority: Max Energy.")
-                DatabaseKeys(
-                    bpm = "160",
-                    genre = "workout",
-                    niche = if (isRainy) "rain_run" else "power_run"
-                )
+                // BPM 150-200
+                when {
+                    // Night/Evening -> House, New-wave, Hip-hop
+                    isNight || isEvening -> {
+                        logLogic("Running at Night/Evening.")
+                        DatabaseKeys(
+                            bpm = listOf("150", "160", "170").random(),
+                            genre = listOf("house", "new-wave", "hip-hop").random(),
+                            niche = listOf("late-night", "german", "arcane").random()
+                        )
+                    }
+                    // Sunny/Clear -> Pop-rock, K-pop, Electro-pop
+                    isClear -> {
+                        logLogic("Running in Sun.")
+                        DatabaseKeys(
+                            bpm = listOf("160", "170", "180", "190").random(),
+                            genre = listOf("pop-rock", "k-pop", "electro-pop").random(),
+                            niche = listOf("tumblr", "arcane").random()
+                        )
+                    }
+                    // Rain/Snow -> Alternative-rock, EDM
+                    isRainy || isSnowy -> {
+                        logLogic("Running in Rain/Snow.")
+                        DatabaseKeys(
+                            bpm = listOf("150", "160", "180").random(),
+                            genre = listOf("alternative-rock", "edm").random(),
+                            niche = listOf("german", "arcane").random()
+                        )
+                    }
+                    // Default/Morning -> EDM, Hip-Hop
+                    else -> {
+                        logLogic("Running Default/Morning.")
+                        DatabaseKeys(
+                            bpm = listOf("150", "160", "170", "180", "200").random(),
+                            genre = listOf("edm", "hip-hop", "electro-pop").random(),
+                            niche = listOf("tumblr", "arcane").random()
+                        )
+                    }
+                }
             }
             "walking" -> {
+                // BPM 90-140
                 when {
+                    // Sunny/Clear -> Surf-rock, Latin, Reggae, Psychedelic-rock, Pop
+                    (isClear || isDay) && !isRainy -> {
+                         logLogic("Walking in Sun/Day.")
+                         DatabaseKeys(
+                             bpm = listOf("100", "110", "120", "130").random(),
+                             genre = listOf("surf-rock", "latin", "reggae", "psychedelic-rock", "pop").random(),
+                             niche = listOf("cottagecore", "tumblr").random()
+                         )
+                    }
+                    // Night/Evening -> Synth-pop, Alt-pop, R&B
+                    isNight || isEvening -> {
+                        logLogic("Walking at Night/Evening.")
+                        DatabaseKeys(
+                            bpm = listOf("90", "100", "110", "120").random(),
+                            genre = listOf("synth-pop", "alternative-pop", "r&b").random(),
+                            niche = listOf("stranger_things", "late-night", "nordic").random()
+                        )
+                    }
+                    // Rain/Snow -> Folk-rock, Country, Soul
                     isRainy || isSnowy -> {
-                        logLogic("Walking in rain/snow. Vibe: Reflective.")
-                        DatabaseKeys("110", "lofi", "rainy_walk")
+                        logLogic("Walking in Rain/Snow.")
+                        DatabaseKeys(
+                            bpm = listOf("90", "100", "110", "140").random(),
+                            genre = listOf("folk-rock", "country", "soul").random(),
+                            niche = listOf("dark-academia", "nordic").random()
+                        )
                     }
-                    isNight -> {
-                        logLogic("Walking at night. Vibe: Cinematic.")
-                        DatabaseKeys("115", "synth-pop", "night_walk")
-                    }
-                    isMorning && isCloudy -> {
-                         logLogic("Walking on a cloudy morning. Vibe: Uplifting.")
-                         DatabaseKeys("120", "synth-pop", "stranger_things")
-                    }
-                    isMorning && isClear -> {
-                        logLogic("Walking on a sunny morning. Vibe: Upbeat.")
-                        DatabaseKeys("120", "pop", "sunny_walk")
-                    }
+                    // Default/Cloudy -> Baroque-pop, Pop, Country, R&B
                     else -> {
-                        logLogic("Casual walking. Vibe: Steady Flow.")
-                        DatabaseKeys("120", "indie", "daily_walk")
+                        logLogic("Walking Default/Cloudy.")
+                        DatabaseKeys(
+                            bpm = listOf("100", "110", "120", "130").random(),
+                            genre = listOf("baroque-pop", "pop", "country", "r&b").random(),
+                            niche = listOf("tumblr", "dark-academia").random()
+                        )
                     }
                 }
             }
             "still" -> {
+                // BPM 50-80
                 when {
-                    isRainy -> {
-                        logLogic("Still + Rain. Vibe: Cozy & Warm.")
-                        DatabaseKeys("80", "jazz", "cozy_rain")
+                    // Night/Evening -> Jazz, Gothic, Soundtrack
+                    isNight || isEvening -> {
+                         logLogic("Still at Night/Evening.")
+                         DatabaseKeys(
+                             bpm = listOf("50", "60", "70").random(),
+                             genre = listOf("jazz", "gothic", "soundtrack").random(),
+                             niche = listOf("late-night", "wednesday", "nordic", "stranger_things").random()
+                         )
                     }
-                    isNight -> {
-                        logLogic("Still at night. Vibe: Deep Focus.")
-                        DatabaseKeys("70", "ambient", "stranger_things")
-                    }
+                    // Morning -> Classical, Disney
                     isMorning -> {
-                        logLogic("Morning relaxation. Vibe: Gentle start.")
-                        DatabaseKeys("90", "acoustic", "morning_coffee")
+                         logLogic("Still Morning.")
+                         DatabaseKeys(
+                             bpm = listOf("60", "70", "80").random(),
+                             genre = listOf("classical", "disney").random(),
+                             niche = listOf("cottagecore", "dark-academia").random()
+                         )
                     }
-                    isSnowy -> {
-                        logLogic("Still + Snow. Vibe: Winter Calm.")
-                        DatabaseKeys("80", "piano", "winter_chill")
+                    // Rain/Snow -> Emo, Soul, Soundtrack
+                    isRainy || isSnowy -> {
+                         logLogic("Still in Rain/Snow.")
+                         DatabaseKeys(
+                             bpm = listOf("50", "60", "70", "80").random(),
+                             genre = listOf("emo", "soul", "soundtrack").random(),
+                             niche = listOf("wednesday", "nordic").random()
+                         )
                     }
+                    // Day/Default -> Soul, Disney, Classical
                     else -> {
-                        logLogic("Just chilling. Vibe: Low Energy.")
-                        DatabaseKeys("100", "chill", "relax")
+                        logLogic("Still Day/Default.")
+                        DatabaseKeys(
+                            bpm = listOf("60", "70", "80").random(),
+                            genre = listOf("soul", "disney", "classical").random(),
+                            niche = listOf("cottagecore", "dark-academia").random()
+                        )
                     }
                 }
             }
