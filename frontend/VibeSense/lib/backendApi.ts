@@ -19,6 +19,7 @@ export type WeatherResponse = {
 export type ContextResponse = {
   moodTag: string;
   message: string;
+  trackAdded?: string | null;
 };
 
 export type NowPlayingResponse = {
@@ -58,14 +59,21 @@ export async function sendContextToBackend(params: {
   activity: "still" | "walking" | "running";
   hour: number;
 }): Promise<ContextResponse> {
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error("User not authenticated for context API call");
+  }
+
   const res = await fetch(`${BACKEND_URL}/context`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(params),
+    body: JSON.stringify({ ...params, uid: user.uid }),
   });
 
   if (!res.ok) {
-    throw new Error("Context API error");
+    const errorBody = await res.text();
+    console.error("Context API error body:", errorBody);
+    throw new Error(`Context API error: ${res.statusText}`);
   }
 
   return (await res.json()) as ContextResponse;
