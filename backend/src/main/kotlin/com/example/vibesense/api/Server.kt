@@ -6,6 +6,11 @@ import com.example.vibesense.api.weather.weatherRouting
 import com.example.vibesense.api.ambient.contextRouting
 import com.example.vibesense.api.engine.MoodEngine
 import com.example.vibesense.api.firebase.FirebaseAdmin
+import com.example.vibesense.api.user.userRouting
+import com.example.vibesense.notifications.NotificationScheduler
+import com.example.vibesense.services.ExpoPushNotificationService
+import com.example.vibesense.services.FirebaseUserRepository
+import com.example.vibesense.services.InMemoryUserNotificationRepository
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation as ClientContentNegotiation
@@ -33,6 +38,10 @@ fun main() {
 
         val weatherService = WeatherService()
         val moodEngine = MoodEngine(client, this)
+        val userNotificationRepository = InMemoryUserNotificationRepository()
+        val pushNotificationService = ExpoPushNotificationService(client)
+        val userRepository = FirebaseUserRepository()
+        val notificationScheduler = NotificationScheduler(userNotificationRepository, pushNotificationService, userRepository)
 
         install(ServerContentNegotiation) {
             json()
@@ -40,8 +49,9 @@ fun main() {
 
         routing {
             weatherRouting(weatherService)
-            contextRouting(weatherService, moodEngine)
+            contextRouting(weatherService, moodEngine, notificationScheduler)
             spotifyRouting(client, moodEngine)
+            userRouting(userRepository)
         }
 
     }.start(wait = true)
