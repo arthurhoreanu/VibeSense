@@ -9,6 +9,7 @@ application {
 }
 
 dependencies {
+    implementation(libs.firebase.common.ktx)
     val ktorVersion = "2.3.12"
 
     // Ktor Server
@@ -26,6 +27,9 @@ dependencies {
 
     // Firebase Admin SDK (for storing Spotify tokens)
     implementation("com.google.firebase:firebase-admin:9.2.0")
+
+    // Coroutines
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
 
     // JSON + time utils
     implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.5.0")
