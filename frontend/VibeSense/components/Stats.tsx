@@ -1,33 +1,46 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { Trophy, Zap, Music, Moon, Award, Star, Target, TrendingUp, Clock, Headphones } from 'lucide-react-native';
+import { Trophy, Zap, Music, Award, Star, Target, TrendingUp, Clock, Headphones } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
-import { Progress } from './ui/progress';
 
-const userStats = {
-  totalPoints: 1247,
-  level: 8,
-  nextLevelPoints: 1500,
-};
-
-const achievements = [
-  { label: 'Total Minutes', value: '2,610', icon: Clock },
-  { label: 'Songs Played', value: '432', icon: Music },
-  { label: 'New Artists', value: '67', icon: Headphones },
-  { label: 'Perfect Days', value: '8', icon: Trophy },
+const pointBadges = [
+  { points: 1000, name: 'Legendary Vibesmith', icon: Trophy, colors: ['#FBBF24', '#F59E0B'] as const },
+  { points: 500, name: 'Vibe Virtuoso', icon: Award, colors: ['#EC4899', '#EF4444'] as const },
+  { points: 400, name: 'Harmony Master', icon: Music, colors: ['#8B5CF6', '#EC4899'] as const },
+  { points: 300, name: 'Sound Specialist', icon: Headphones, colors: ['#6366F1', '#8B5CF6'] as const },
+  { points: 200, name: 'Rhythm Rider', icon: Zap, colors: ['#F59E0B', '#F97316'] as const },
+  { points: 100, name: 'Vibe Explorer', icon: Target, colors: ['#10B981', '#10B981'] as const },
+  { points: 50, name: 'Groove Seeker', icon: Star, colors: ['#3B82F6', '#06B6D4'] as const },
+  { points: 20, name: 'Beat Beginner', icon: TrendingUp, colors: ['#A78BFA', '#7C3AED'] as const },
+  { points: 10, name: 'Fresh Viber', icon: Clock, colors: ['#2DD4BF', '#14B8A6'] as const },
 ];
 
-const badges = [
-    { id: 1, name: 'Chill Master', description: 'Listen to 100 chill tracks', icon: Music, progress: 85, colors: ['#3B82F6', '#06B6D4'] as const, earned: false },
-    { id: 2, name: 'Beat Runner', description: 'Run with music 50 times', icon: Zap, progress: 100, colors: ['#F59E0B', '#F97316'] as const, earned: true },
-    { id: 3, name: 'Night Owl', description: 'Listen after midnight 30 times', icon: Moon, progress: 73, colors: ['#6366F1', '#8B5CF6'] as const, earned: false },
-    { id: 4, name: 'Explorer', description: 'Discover 100 new artists', icon: Target, progress: 100, colors: ['#10B981', '#10B981'] as const, earned: true },
-    { id: 5, name: 'Mood Master', description: 'Experience all mood types', icon: Star, progress: 60, colors: ['#EC4899', '#EF4444'] as const, earned: false },
-    { id: 6, name: 'Week Warrior', description: '7 day listening streak', icon: TrendingUp, progress: 100, colors: ['#8B5CF6', '#EC4899'] as const, earned: true },
-];
+export function StatsPage({ totalPoints = 450 }: { totalPoints?: number }) {
+  const getCurrentBadge = (points: number) => {
+    return pointBadges.find(badge => points >= badge.points);
+  };
 
-export function StatsPage() {
+  const earnedBadges = pointBadges.filter(badge => totalPoints >= badge.points);
+  const currentBadge = getCurrentBadge(totalPoints);
+  const nextBadge = [...pointBadges].reverse().find(badge => totalPoints < badge.points);
+
+  const getProgress = () => {
+    if (!nextBadge) {
+      return { percentage: 100, text: "You've unlocked all badges!" };
+    }
+    const previousPoints = currentBadge?.points || 0;
+    const requiredPoints = nextBadge.points - previousPoints;
+    const currentProgress = totalPoints - previousPoints;
+    const percentage = (currentProgress / requiredPoints) * 100;
+    return {
+      percentage,
+      text: `${totalPoints} / ${nextBadge.points} PTS`,
+    };
+  };
+
+  const progress = getProgress();
+
   return (
     <LinearGradient colors={['#0F172A', '#1E1B4B', '#0F172A']} style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -40,68 +53,66 @@ export function StatsPage() {
           <Text style={styles.headerTitle}>Your Journey</Text>
         </Animated.View>
 
-        {/* Level & Points */}
+        {/* Points & Progress Card */}
         <Animated.View entering={FadeIn.duration(500).delay(200)}>
-          <LinearGradient colors={['#8B5CF6', '#EC4899']} style={styles.levelCard}>
-            <View style={styles.levelRow}>
-              <View>
-                <Text style={styles.cardSubtleText}>Current Level</Text>
-                <Text style={styles.levelText}>{userStats.level}</Text>
+          <LinearGradient
+            colors={currentBadge ? currentBadge.colors : ['#374151', '#111827']}
+            style={styles.statsCard}
+          >
+            {currentBadge ? (
+              <View style={styles.badgeInfo}>
+                <View style={styles.badgeIconCircle}>
+                  <currentBadge.icon color="white" size={32} />
+                </View>
+                <View>
+                  <Text style={styles.badgeTitle}>Current Badge</Text>
+                  <Text style={styles.badgeNameText}>{currentBadge.name}</Text>
+                </View>
               </View>
-              <View style={{alignItems: 'flex-end'}}>
-                <Text style={styles.cardSubtleText}>Total Points</Text>
-                <Text style={styles.pointsText}>{userStats.totalPoints}</Text>
+            ) : (
+              <View style={styles.badgeInfo}>
+                <View style={styles.badgeIconCircle}>
+                  <Clock color="white" size={32} />
+                </View>
+                <View>
+                  <Text style={styles.badgeTitle}>No badge yet</Text>
+                  <Text style={styles.badgeNameText}>Start listening to earn points!</Text>
+                </View>
+              </View>
+            )}
+
+            <View style={styles.pointsSection}>
+              <Text style={styles.pointsValue}>{totalPoints}</Text>
+              <Text style={styles.pointsLabel}>Vibe Points</Text>
+            </View>
+
+            <View>
+              <View style={styles.progressBar}>
+                <Animated.View style={[styles.progressBarFill, { width: `${progress.percentage}%` }]} />
+              </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text style={styles.progressText}>Progress</Text>
+                <Text style={styles.progressText}>{progress.text}</Text>
               </View>
             </View>
-            <Progress value={(userStats.totalPoints / userStats.nextLevelPoints) * 100} />
-            <Text style={styles.levelProgressText}>
-              {userStats.nextLevelPoints - userStats.totalPoints} points to Level {userStats.level + 1}
-            </Text>
           </LinearGradient>
         </Animated.View>
 
-        {/* Quick Stats */}
-        <View style={styles.quickStatsGrid}>
-          {achievements.map((stat, i) => (
-            <Animated.View key={i} entering={FadeInDown.duration(500).delay(300 + i * 100)} style={styles.quickStatCard}>
-              <stat.icon color="#A78BFA" size={22} style={{ marginBottom: 8 }} />
-              <Text style={styles.quickStatValue}>{stat.value}</Text>
-              <Text style={styles.quickStatLabel}>{stat.label}</Text>
-            </Animated.View>
-          ))}
-        </View>
-
-        {/* Badges */}
+        {/* Badges Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Badges & Achievements</Text>
+          <Text style={styles.sectionTitle}>Your Badges</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.badgesGrid}>
-            {badges.map((badge, i) => (
-              <Animated.View key={badge.id} entering={FadeIn.duration(500).delay(500 + i * 100)}>
-                {badge.earned ? (
-                  <LinearGradient colors={badge.colors} style={styles.badgeCard}>
-                    <View style={[styles.badgeIconContainer, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-                      <badge.icon color="white" size={28} />
-                    </View>
-                    <Text style={[styles.badgeName, { color: 'white' }]}>{badge.name}</Text>
-                    <Text style={[styles.badgeDescription, { color: 'rgba(255,255,255,0.8)' }]}>{badge.description}</Text>
-                    <View style={{ flex: 1 }} />
-                    <View style={styles.earnedContainer}>
-                        <Award color="white" size={14} />
-                        <Text style={styles.earnedText}>Earned</Text>
-                    </View>
-                  </LinearGradient>
-                ) : (
-                  <View style={[styles.badgeCard, styles.badgeNotEarned]}>
-                    <View style={[styles.badgeIconContainer, { backgroundColor: 'rgba(255,255,255,0.05)' }]}>
-                      <badge.icon color="rgba(255,255,255,0.4)" size={28} />
-                    </View>
-                    <Text style={[styles.badgeName, { color: 'rgba(255,255,255,0.6)' }]}>{badge.name}</Text>
-                    <Text style={[styles.badgeDescription, { color: 'rgba(255,255,255,0.4)' }]}>{badge.description}</Text>
-                    <View style={{ flex: 1 }} />
-                    <Progress value={badge.progress} />
-                    <Text style={styles.progressText}>{badge.progress}% complete</Text>
+            {earnedBadges.map((badge, i) => (
+              <Animated.View key={badge.points} entering={FadeIn.duration(500).delay(500 + i * 100)}>
+                <LinearGradient colors={badge.colors} style={styles.badgeCard}>
+                  <View style={[styles.badgeIconContainer]}>
+                    <badge.icon color="white" size={28} />
                   </View>
-                )}
+                  <Text style={styles.badgeName}>{badge.name}</Text>
+                  <Text style={styles.badgeDescription}>
+                    Earned at {badge.points} points
+                  </Text>
+                </LinearGradient>
               </Animated.View>
             ))}
           </ScrollView>
@@ -113,38 +124,98 @@ export function StatsPage() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollContent: { paddingVertical: 60 },
+  scrollContent: { paddingVertical: 60, paddingBottom: 100 },
   header: { marginBottom: 24, paddingHorizontal: 20 },
   headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   headerSubtitle: { color: '#FBBF24', fontSize: 16 },
   headerTitle: { color: 'white', fontSize: 34, fontWeight: 'bold' },
-  levelCard: { borderRadius: 24, padding: 20, marginBottom: 24, marginHorizontal: 20 },
-  levelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
-  cardSubtleText: { color: 'rgba(255,255,255,0.8)', fontSize: 14, marginBottom: 4 },
-  levelText: { color: 'white', fontSize: 52, fontWeight: 'bold' },
-  pointsText: { color: 'white', fontSize: 28, fontWeight: 'bold' },
-  levelProgressText: { color: 'rgba(255,255,255,0.8)', fontSize: 14, marginTop: 8 },
-  quickStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 24, paddingHorizontal: 20 },
-  quickStatCard: {
-    width: '48%',
-    backgroundColor: 'rgba(30, 27, 75, 0.5)',
-    borderColor: 'rgba(139, 92, 246, 0.2)',
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
+  
+  // New Stats Card
+  statsCard: {
+    borderRadius: 24,
+    padding: 24,
+    marginHorizontal: 20,
+    marginBottom: 32,
+    gap: 24,
   },
-  quickStatValue: { color: 'white', fontSize: 24, fontWeight: 'bold', marginBottom: 4 },
-  quickStatLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 12 },
+  badgeInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  badgeIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  badgeTitle: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 14,
+  },
+  badgeNameText: {
+    color: 'white',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  pointsSection: {
+    alignItems: 'center',
+  },
+  pointsValue: {
+    color: 'white',
+    fontSize: 52,
+    fontWeight: 'bold',
+  },
+  pointsLabel: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 16,
+    marginTop: -4,
+  },
+  progressBar: {
+    height: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: 'white',
+  },
+  progressText: {
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+
+  // Badges Section
   section: { marginBottom: 24 },
   sectionTitle: { color: 'white', fontSize: 22, fontWeight: 'bold', marginBottom: 16, paddingHorizontal: 20 },
   badgesGrid: { gap: 16, paddingHorizontal: 20 },
-  badgeCard: { width: 160, height: 210, borderRadius: 16, padding: 16, flexDirection: 'column' },
-  badgeNotEarned: { backgroundColor: 'rgba(30, 27, 75, 0.3)', borderWidth: 1, borderColor: 'rgba(139, 92, 246, 0.1)' },
-  badgeIconContainer: { width: 52, height: 52, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
-  badgeName: { fontSize: 16, fontWeight: 'bold', marginBottom: 4 },
-  badgeDescription: { fontSize: 12, color: 'rgba(255,255,255,0.7)', marginBottom: 12 },
-  earnedContainer: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
-  earnedText: { color: 'white', fontSize: 12, fontWeight: 'bold' },
-  progressText: { fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 4 },
+  badgeCard: { 
+    width: 150, 
+    height: 180, 
+    borderRadius: 20, 
+    padding: 16, 
+    justifyContent: 'space-between',
+  },
+  badgeIconContainer: { 
+    width: 48, 
+    height: 48, 
+    borderRadius: 12, 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  badgeName: { 
+    fontSize: 16, 
+    fontWeight: 'bold', 
+    color: 'white',
+  },
+  badgeDescription: { 
+    fontSize: 12, 
+    color: 'rgba(255,255,255,0.8)'
+  },
 });
