@@ -113,21 +113,6 @@ export function HomeScreen() {
                     </LinearGradient>
                 </View>
 
-                {/* Stats Summary (placeholder) */}
-                <View style={styles.statsContainer}>
-                    <View style={styles.statBox}>
-                        <Text style={[styles.statValue, { color: '#22d3ee' }]}>247</Text>
-                        <Text style={styles.statLabel}>Points</Text>
-                    </View>
-                    <View style={styles.statBox}>
-                        <Text style={[styles.statValue, { color: '#c084fc' }]}>18</Text>
-                        <Text style={styles.statLabel}>New Tracks</Text>
-                    </View>
-                    <View style={styles.statBox}>
-                        <Text style={[styles.statValue, { color: '#f472b6' }]}>5.2h</Text>
-                        <Text style={styles.statLabel}>Today</Text>
-                    </View>
-                </View>
 
                 {nowPlaying?.trackName && (
                 <TouchableOpacity onPress={() => router.push('/playing')} style={styles.sectionContainer}>
@@ -226,23 +211,6 @@ const styles = StyleSheet.create({
     factorHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
     factorLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 12 },
     factorValue: { color: 'white', fontSize: 14, fontWeight: '500' },
-    statsContainer: {
-        marginHorizontal: 20,
-        marginBottom: 24,
-        flexDirection: 'row',
-        gap: 12
-    },
-    statBox: {
-        flex: 1,
-        backgroundColor: 'rgba(51, 65, 85, 0.5)',
-        borderRadius: 12,
-        padding: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(51, 65, 85, 0.5)',
-        alignItems: 'center'
-    },
-    statValue: { fontSize: 24, fontWeight: 'bold' },
-    statLabel: { color: '#94a3b8', fontSize: 12, marginTop: 4 },
     sectionContainer: { marginHorizontal: 20, marginBottom: 24 },
     sectionHeader: {
         flexDirection: 'row',
