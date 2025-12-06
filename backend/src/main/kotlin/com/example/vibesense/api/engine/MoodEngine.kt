@@ -147,6 +147,15 @@ class MoodEngine(private val client: HttpClient, private val application: Applic
                             niche = listOf("german", "arcane").random()
                         )
                     }
+                    // Cloudy -> House, Electro-pop
+                    isCloudy -> {
+                        logLogic("Running in Clouds.")
+                        DatabaseKeys(
+                            bpm = listOf("150", "160", "170").random(),
+                            genre = listOf("house", "electro-pop").random(),
+                            niche = listOf("nordic", "tumblr").random()
+                        )
+                    }
                     // Default/Morning -> EDM, Hip-Hop
                     else -> {
                         logLogic("Running Default/Morning.")
@@ -188,9 +197,18 @@ class MoodEngine(private val client: HttpClient, private val application: Applic
                             niche = listOf("dark-academia", "nordic").random()
                         )
                     }
-                    // Default/Cloudy -> Baroque-pop, Pop, Country, R&B
+                    // Cloudy -> Alternative-pop, Soul
+                    isCloudy -> {
+                        logLogic("Walking in Clouds.")
+                        DatabaseKeys(
+                            bpm = listOf("100", "110", "120").random(),
+                            genre = listOf("alternative-pop", "soul").random(),
+                            niche = listOf("cottagecore", "dark-academia").random()
+                        )
+                    }
+                    // Default -> Baroque-pop, Pop, Country, R&B
                     else -> {
-                        logLogic("Walking Default/Cloudy.")
+                        logLogic("Walking Default.")
                         DatabaseKeys(
                             bpm = listOf("100", "110", "120", "130").random(),
                             genre = listOf("baroque-pop", "pop", "country", "r&b").random(),
@@ -227,6 +245,15 @@ class MoodEngine(private val client: HttpClient, private val application: Applic
                              bpm = listOf("50", "60", "70", "80").random(),
                              genre = listOf("emo", "soul", "soundtrack").random(),
                              niche = listOf("wednesday", "nordic").random()
+                         )
+                    }
+                    // Cloudy -> Jazz, Soul
+                    isCloudy -> {
+                         logLogic("Still in Clouds.")
+                         DatabaseKeys(
+                             bpm = listOf("60", "70", "80").random(),
+                             genre = listOf("jazz", "soul").random(),
+                             niche = listOf("dark-academia", "nordic").random()
                          )
                     }
                     // Day/Default -> Soul, Disney, Classical

@@ -1,8 +1,10 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, AppState, AppStateStatus } from 'react-native';
 import { Trophy, Zap, Music, Award, Star, Target, TrendingUp, Clock, Headphones } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import { auth, db } from '../config/firebaseConfig';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 const pointBadges = [
   { points: 1000, name: 'Legendary Vibesmith', icon: Trophy, colors: ['#FBBF24', '#F59E0B'] as const },
@@ -16,12 +18,99 @@ const pointBadges = [
   { points: 10, name: 'Fresh Viber', icon: Clock, colors: ['#2DD4BF', '#14B8A6'] as const },
 ];
 
-export function StatsPage({ totalPoints = 450 }: { totalPoints?: number }) {
+export function StatsPage() {
+  const [totalPoints, setTotalPoints] = useState(0);
+  const [sessionPoints, setSessionPoints] = useState(0);
+  const [earnedBadgesList, setEarnedBadgesList] = useState<string[]>([]);
+  const appState = useRef(AppState.currentState);
+
+  const syncToFirestore = async (newTotalPoints: number) => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const badges = pointBadges
+        .filter(badge => newTotalPoints >= badge.points)
+        .map(badge => badge.name);
+
+    setEarnedBadgesList(badges);
+
+    try {
+        const userRef = doc(db, 'users', user.uid);
+        await setDoc(userRef, { 
+            points: newTotalPoints,
+            badges: badges 
+        }, { merge: true });
+        
+        console.log("Synced to Firestore:", newTotalPoints);
+        setSessionPoints(0);
+    } catch (error) {
+        console.error("Error syncing to Firestore:", error);
+    }
+  };
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+        const user = auth.currentUser;
+        if (!user) return;
+
+        try {
+            const userRef = doc(db, 'users', user.uid);
+            const docSnap = await getDoc(userRef);
+
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                const points = data.points || 0;
+                setTotalPoints(points);
+                setEarnedBadgesList(data.badges || []);
+            }
+        } catch (error) {
+            console.error("Error fetching user data:", error);
+        }
+    };
+    fetchUserData();
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+        setTotalPoints(prev => {
+            const newPoints = prev + 1;
+            setSessionPoints(session => session + 1);
+            return newPoints; 
+        });
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+      if (sessionPoints > 0 && sessionPoints % 5 === 0) {
+          syncToFirestore(totalPoints);
+      }
+  }, [sessionPoints, totalPoints]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (
+        appState.current === 'active' &&
+        nextAppState.match(/inactive|background/)
+      ) {
+        if (sessionPoints > 0) {
+            syncToFirestore(totalPoints);
+        }
+      }
+      appState.current = nextAppState;
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [sessionPoints, totalPoints]);
+
   const getCurrentBadge = (points: number) => {
     return pointBadges.find(badge => points >= badge.points);
   };
 
-  const earnedBadges = pointBadges.filter(badge => totalPoints >= badge.points);
+  const badgesObjects = pointBadges.filter(badge => totalPoints >= badge.points);
   const currentBadge = getCurrentBadge(totalPoints);
   const nextBadge = [...pointBadges].reverse().find(badge => totalPoints < badge.points);
 
@@ -102,7 +191,7 @@ export function StatsPage({ totalPoints = 450 }: { totalPoints?: number }) {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Your Badges</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.badgesGrid}>
-            {earnedBadges.map((badge, i) => (
+            {badgesObjects.map((badge, i) => (
               <Animated.View key={badge.points} entering={FadeIn.duration(500).delay(500 + i * 100)}>
                 <LinearGradient colors={badge.colors} style={styles.badgeCard}>
                   <View style={[styles.badgeIconContainer]}>
