@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { auth, db } from '../config/firebaseConfig';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+import useNowPlaying from '../hooks/useNowPlaying';
 
 const pointBadges = [
   { points: 1000, name: 'Legendary Vibesmith', icon: Trophy, colors: ['#FBBF24', '#F59E0B'] as const },
@@ -23,6 +24,9 @@ export function StatsPage() {
   const [sessionPoints, setSessionPoints] = useState(0);
   const [earnedBadgesList, setEarnedBadgesList] = useState<string[]>([]);
   const appState = useRef(AppState.currentState);
+
+  const { nowPlaying } = useNowPlaying();
+  const [pointAwardedForCurrentTrack, setPointAwardedForCurrentTrack] = useState<string | null>(null);
 
   const syncToFirestore = async (newTotalPoints: number) => {
     const user = auth.currentUser;
@@ -71,16 +75,35 @@ export function StatsPage() {
   }, []);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-        setTotalPoints(prev => {
-            const newPoints = prev + 1;
-            setSessionPoints(session => session + 1);
-            return newPoints; 
-        });
-    }, 60000);
+    // If no song is playing, or song has no name, reset everything.
+    if (!nowPlaying?.trackName || !nowPlaying.artistName) {
+      setPointAwardedForCurrentTrack(null);
+      return;
+    }
 
-    return () => clearInterval(interval);
-  }, []);
+    const currentTrackId = `${nowPlaying.trackName}-${nowPlaying.artistName}`;
+
+    // If the song has changed, reset the flag.
+    // This allows a new point to be awarded for the new song.
+    if (pointAwardedForCurrentTrack !== currentTrackId) {
+       setPointAwardedForCurrentTrack(null);
+    }
+    
+    const hasBeenAwarded = pointAwardedForCurrentTrack === currentTrackId;
+    const isPlayingFor30s = nowPlaying.progressMs && nowPlaying.progressMs >= 30000;
+
+    if (isPlayingFor30s && !hasBeenAwarded) {
+      console.log(`Awarding point for ${currentTrackId}`);
+      
+      setPointAwardedForCurrentTrack(currentTrackId);
+
+      setTotalPoints(prev => {
+          const newPoints = prev + 1;
+          setSessionPoints(session => session + 1);
+          return newPoints;
+      });
+    }
+  }, [nowPlaying]);
 
   useEffect(() => {
       if (sessionPoints > 0 && sessionPoints % 5 === 0) {
