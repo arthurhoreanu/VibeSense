@@ -3,22 +3,17 @@ package com.example.vibesense.api.ambient
 import com.example.vibesense.api.engine.MoodContext
 import com.example.vibesense.api.engine.MoodEngine
 import com.example.vibesense.api.weather.WeatherService
-import com.example.vibesense.notifications.NotificationScheduler
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 
-fun Routing.contextRouting(weatherService: WeatherService, moodEngine: MoodEngine, notificationScheduler: NotificationScheduler) {
+fun Routing.contextRouting(weatherService: WeatherService, moodEngine: MoodEngine) {
 
     post("/context") {
         try {
             val req = call.receive<ContextRequest>()
-            
-            // Handle notifications
-            notificationScheduler.handleUserOnline(req.uid)
-            notificationScheduler.scheduleDailyNotifications(req.uid)
 
             // 1. Get Weather
             val weather = weatherService.getWeatherData(req.lat, req.lon)
