@@ -11,6 +11,7 @@ import { auth } from '../config/firebaseConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useColorScheme } from '@/components/useColorScheme';
+import { registerForPushNotificationsAsync } from '@/lib/notifications';
 
 export {
   ErrorBoundary,
@@ -30,6 +31,10 @@ export default function RootLayout() {
 
   useEffect(() => { if (error) throw error; }, [error]);
   useEffect(() => { if (loaded) SplashScreen.hideAsync(); }, [loaded]);
+
+  useEffect(() => {
+    registerForPushNotificationsAsync();
+  }, []);
 
   if (!loaded) return null;
 

@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } from 'firebase/auth';
 import { doc, setDoc, Timestamp } from 'firebase/firestore';
 import { auth, db } from '../config/firebaseConfig';
 
@@ -21,6 +21,7 @@ const { width } = Dimensions.get('window');
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 const SignupScreen: React.FC = () => {
+  const [username, setUsername] = useState<string>('');
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [confirmPassword, setConfirmPassword] = useState<string>('');
@@ -28,6 +29,7 @@ const SignupScreen: React.FC = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
   const [loading, setLoading] = useState(false);
 
+  const usernameBorder = useRef(new Animated.Value(0)).current;
   const emailBorder = useRef(new Animated.Value(0)).current;
   const passBorder = useRef(new Animated.Value(0)).current;
   const confirmBorder = useRef(new Animated.Value(0)).current;
@@ -35,7 +37,7 @@ const SignupScreen: React.FC = () => {
   const buttonAnim = useRef(new Animated.Value(0)).current;
 
   const handleSignUp = async () => {
-    if (!email || !password || !confirmPassword) {
+    if (!username || !email || !password || !confirmPassword) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
@@ -48,10 +50,13 @@ const SignupScreen: React.FC = () => {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
+      await updateProfile(user, { displayName: username });
+
       // Create user document in Firestore
       await setDoc(doc(db, "users", user.uid), {
         uid: user.uid,
         email: user.email,
+        username: username,
         createdAt: Timestamp.now(),
       });
 
@@ -115,6 +120,38 @@ const SignupScreen: React.FC = () => {
         </LinearGradient>
 
         <View style={styles.form}>
+           {/* Username */}
+           <Animated.View
+            style={[
+              styles.inputWrapper,
+              {
+                borderColor: usernameBorder.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['rgba(90,78,196,0.4)', '#C77DFF'],
+                }),
+              },
+            ]}
+          >
+            <Ionicons
+              name="person-outline"
+              size={18}
+              color="#B9B9FF"
+              style={styles.inputIcon}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Username"
+              placeholderTextColor="#8080A8"
+              autoCapitalize="none"
+              value={username}
+              onChangeText={setUsername}
+              onFocus={() => animateBorder(usernameBorder, 1)}
+              onBlur={() => animateBorder(usernameBorder, 0)}
+              underlineColorAndroid="transparent"
+              selectionColor="#C77DFF"
+            />
+          </Animated.View>
+
           {/* Email */}
           <Animated.View
             style={[
