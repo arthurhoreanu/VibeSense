@@ -75,7 +75,6 @@ export function SettingsPage() {
                 </View>
                 <View style={{ flex: 1 }}>
                     <Text style={{ color: 'white', fontSize: 20, fontWeight: 'bold' }}>{username}</Text>
-                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 14 }}>Level 8 • 1,247 points</Text>
                 </View>
                 <ChevronRight size={24} color="rgba(255,255,255,0.7)" />
             </View>
